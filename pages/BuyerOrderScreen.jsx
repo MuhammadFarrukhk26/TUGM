@@ -25,6 +25,7 @@ const BuyerOrderScreen = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/order/user/${userId}`)
             if (res?.data) {
+                // console.log("orders", res?.data?.data)
                 setOrders(res?.data?.data);
             }
         }
@@ -34,6 +35,7 @@ const BuyerOrderScreen = () => {
     }
 
     const filteredOrders = orders.filter(order => {
+        // console.log("order.status", order)
         if (activeTab === 'All') {
             return true;
         }
@@ -70,7 +72,7 @@ const BuyerOrderScreen = () => {
                 return null;
         }
     };
-    
+
     useEffect(() => {
         fetchProduct()
     }, []);
@@ -97,18 +99,18 @@ const BuyerOrderScreen = () => {
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContent}>
                 {filteredOrders.map(order => (
-                    <TouchableOpacity onPress={() => navigation.navigate("order_tracking")} key={order.id} style={styles.orderCard}>
-                        <Image source={{uri:order?.productId?.images[0]}} style={styles.productImage} />
+                    <TouchableOpacity onPress={() => navigation.navigate("order_tracking", { orderId: order._id })} key={order._id} style={styles.orderCard}>
+                        <Image source={{ uri: order?.productId?.images?.[0] || product_img }} style={styles.productImage} />
                         <View style={styles.orderDetails}>
-                            <Text style={styles.productType}>{order?.productId?.categories[0]}</Text>
-                            <Text style={styles.productName}>{order?.productId?.title}</Text>
-                            {order.status === 'ongoing' && renderOrderStatus(order.status)}
-                            {order.status === 'cancelled' && renderOrderStatus(order.status)}
-                            {order.status === 'delivered' && renderOrderStatus(order.status, order.date)}
+                            <Text style={styles.productType}>{order?.productId?.categories?.[0] || 'Category'}</Text>
+                            <Text style={styles.productName}>{order?.productId?.title || 'Product'}</Text>
+                            {order?.status === 'ongoing' && renderOrderStatus(order.status)}
+                            {order?.status === 'cancelled' && renderOrderStatus(order.status)}
+                            {order?.status === 'delivered' && renderOrderStatus(order.status, order.date)}
                         </View>
                         <View style={styles.priceContainer}>
-                            <Text style={styles.priceItems}>{order?.quantity} Items</Text>
-                            <Text style={styles.priceText}>${order?.total}</Text>
+                            <Text style={styles.priceItems}>{order?.quantity || 0} Items</Text>
+                            <Text style={styles.priceText}>${order?.total || '0.00'}</Text>
                         </View>
                     </TouchableOpacity>
                 ))}
@@ -147,8 +149,8 @@ const styles = StyleSheet.create({
     tabButton: {
         alignItems: 'center',
         paddingVertical: 10,
-        width:80,
-        marginHorizontal:5,
+        width: 80,
+        marginHorizontal: 5,
         backgroundColor: '#252525',
         borderRadius: 50,
     },
@@ -157,7 +159,7 @@ const styles = StyleSheet.create({
     },
     tabText: {
         color: 'white',
-        textTransform:"capitalize"
+        textTransform: "capitalize"
     },
     activeTabText: {
         color: 'white',

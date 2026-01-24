@@ -32,10 +32,16 @@ const CreateStreamScreen = () => {
     const [isStoreVisible, setIsStoreVisible] = useState(false);
     const [activeCategory, setActiveCategory] = useState('');
     const [selectedTab, setSelectedTab] = useState("Auction");
+    const [filteredProducts, setFilterProducts] = useState([])
 
 
     const togglePopup = () => { setIsPopupVisible(!isPopupVisible); }
-    const handleCategoryPress = (category) => { setActiveCategory(category); };
+    const handleCategoryPress = (category) => {
+        setActiveCategory(category);
+        const filtered = products.filter(product => product?.categories?.includes(category));
+        setFilterProducts(filtered);
+
+    };
 
     const fetchCategory = async () => {
         try {
@@ -55,6 +61,7 @@ const CreateStreamScreen = () => {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
                 setProducts(res?.data?.data);
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
             }
         }
         catch (error) {
@@ -341,7 +348,7 @@ const CreateStreamScreen = () => {
 
                             <Text style={{ color: 'white', fontSize: 16, marginTop: 10 }}>My Store</Text>
 
-                            {products?.map((i) => (
+                            {filteredProducts?.map((i) => (
                                 <View
                                     key={i._id}
                                     style={{

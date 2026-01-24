@@ -22,6 +22,7 @@ const SingleProductPage = () => {
                 const res = await axios.get(`${config.baseUrl}/product/single/${productId}`);
                 setProduct(res.data.data);
                 setSelectedImage(res.data.data?.images[0]); 
+                console.log(res.data.data,'res.data.data');
             } catch (err) {
                 console.log("Error fetching product:", err);
             } finally {

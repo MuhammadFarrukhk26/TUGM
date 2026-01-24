@@ -69,10 +69,10 @@ const AuctionListingScreen = () => {
 
     const handleCategoryPress = (category) => {
         setActiveCategory(category);
-        const filtered = products.filter(product => product.categoryId.category === category);
+        const filtered = products.filter(product => product?.categories?.includes(category));
         setFilterProducts(filtered);
     };
-    const filteredAuctions = auctionData.filter(stream => stream.name.toLowerCase().includes(searchText.toLowerCase()));
+    const filteredAuctions = auctionData?.filter(stream => stream?.name?.toLowerCase()?.includes(searchText?.toLowerCase()));
 
 
     const handleTabPress = (tabName) => {
@@ -109,9 +109,10 @@ const AuctionListingScreen = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/product/all`);
             if (res?.data) {
-                const filtered = res.data.data.filter(product => product?.categoryId?.category === "Shirts");
+                // const filtered = res.data.data.filter(product => product?.categoryId?.category === "Shirts");
                 setProducts(res?.data?.data);
-                setFilterProducts(filtered);
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
+                // setFilterProducts(filtered);
             }
         }
         catch (error) {
@@ -281,7 +282,8 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#000',
-        paddingTop: 20
+        paddingTop: 40,
+        paddingBottom: 20
     },
     storyContainer: {
         paddingVertical: 20,

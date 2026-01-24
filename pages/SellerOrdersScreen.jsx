@@ -3,6 +3,7 @@ import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image, ToastAndro
 import BottomNavBar from '../components/BottomNav';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
+import product_img from "../assets/product/main.png";
 import config from "../config";
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -17,10 +18,20 @@ const SellerOrdersScreen = () => {
     const fetchProduct = async () => {
         let userId = await AsyncStorage.getItem('userId');
         try {
+            // Get regular orders
             let res = await axios.get(`${config.baseUrl}/order/seller/${userId}`)
-            if (res?.data) {
-                setOrders(res?.data?.data);
-            }
+            
+            // Get auction shipments
+            let shipmentsRes = await axios.get(`${config.baseUrl}/shipment/seller/${userId}`)
+                .catch(err => ({ data: { data: [] } })); // Fallback if endpoint doesn't exist yet
+            
+            // Combine both orders and shipments
+            let allOrders = [
+                ...res?.data?.data || [],
+                ...shipmentsRes?.data?.data || [],
+            ];
+            
+            setOrders(allOrders);
         }
         catch (error) {
             console.log(error)
@@ -78,40 +89,56 @@ const SellerOrdersScreen = () => {
 
                 <View>
                     {
-                        orders?.map((order) => (
-                            <View key={order._id} style={{ backgroundColor: '#171717', marginBottom: 20, padding: 10, }}>
-                                <View style={styles.orderCard}>
-                                    <Image source={{ uri: order?.productId?.images[0] }} style={styles.productImage} />
-                                    <View style={styles.orderDetails}>
-                                        <Text style={styles.productType}>{order?.productId?.categories[0]}</Text>
-                                        <Text style={styles.productName}>{order?.productId?.title}</Text>
-                                    </View>
-                                    <View style={styles.priceContainer}>
-                                        <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
-                                            <View style={[styles.statusTag, styles.ongoingTag]}><Text style={styles.statusText}>{order?.status}</Text></View>
-                                            <Text style={styles.priceItems}>{order?.quantity} Items</Text>
+                        orders?.map((order, idx) => {
+                            const product = order?.productId || {};
+                            const imageUri = product?.images?.[0];
+                            const category = product?.categories?.[0] || 'Category';
+                            const title = product?.title || 'Product';
+                            const qty = order?.quantity || 0;
+                            const total = order?.total ?? '0.00';
+                            const status = order?.status || '';
+                            const statusStyle = status === 'ongoing'
+                                ? styles.ongoingTag
+                                : status === 'delivered'
+                                    ? styles.deliveredTag
+                                    : status === 'cancelled'
+                                        ? styles.canceledTag
+                                        : styles.ongoingTag;
+
+                            return (
+                                <View key={order?._id || order?.id || idx} style={{ backgroundColor: '#171717', marginBottom: 20, padding: 10, }}>
+                                    <View style={styles.orderCard}>
+                                        <Image source={imageUri ? { uri: imageUri } : product_img} style={styles.productImage} />
+                                        <View style={styles.orderDetails}>
+                                            <Text style={styles.productType}>{category}</Text>
+                                            <Text style={styles.productName}>{title}</Text>
                                         </View>
-                                        <Text style={styles.priceText}>${order?.total}</Text>
+                                        <View style={styles.priceContainer}>
+                                            <View style={{ flexDirection: "row", alignItems: "center", gap: 5 }}>
+                                                <View style={[styles.statusTag, statusStyle]}><Text style={styles.statusText}>{status}</Text></View>
+                                                <Text style={styles.priceItems}>{qty} Items</Text>
+                                            </View>
+                                            <Text style={styles.priceText}>${total}</Text>
+                                        </View>
                                     </View>
+                                    {
+                                        status === "ongoing" && (
+                                            <View>
+
+                                                <TouchableOpacity onPress={() => orderStatus(order?._id)} style={{ backgroundColor: "red", marginTop: 10, paddingVertical: 7, borderRadius: 6, justifyContent: "center", alignItems: "center" }}>
+                                                    <Text style={{ color: "white", fontSize: 15 }}>Cancel Order</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => deliverOrder(order?._id)} style={{ backgroundColor: "#2C2C2E", marginTop: 10, paddingVertical: 7, borderRadius: 6, justifyContent: "center", alignItems: "center" }}>
+                                                    <Text style={{ color: "white", fontSize: 15 }}>Complete Order</Text>
+                                                </TouchableOpacity>
+
+                                            </View>
+                                        )
+                                    }
+
                                 </View>
-                                {
-                                    order.status === "ongoing" && (
-                                        <View>
-
-                                            <TouchableOpacity onPress={() => orderStatus(order?._id)} style={{ backgroundColor: "red", marginTop: 10, paddingVertical: 7, borderRadius: 6, justifyContent: "center", alignItems: "center" }}>
-                                                <Text style={{ color: "white", fontSize: 15 }}>Cancel Order</Text>
-                                            </TouchableOpacity>
-                                            <TouchableOpacity onPress={() => deliverOrder(order?._id)} style={{ backgroundColor: "#2C2C2E", marginTop: 10, paddingVertical: 7, borderRadius: 6, justifyContent: "center", alignItems: "center" }}>
-                                                <Text style={{ color: "white", fontSize: 15 }}>Complete Order</Text>
-                                            </TouchableOpacity>
-
-                                        </View>
-                                    )
-                                }
-
-
-                            </View>
-                        ))
+                            )
+                        })
                     }
                 </View>
 
@@ -198,6 +225,20 @@ const styles = StyleSheet.create({
     },
     ongoingTag: {
         backgroundColor: '#2C2C2E',
+        width: 70,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center"
+    },
+    deliveredTag: {
+        backgroundColor: '#5CB85C',
+        width: 70,
+        borderRadius: 10,
+        justifyContent: "center",
+        alignItems: "center"
+    },
+    canceledTag: {
+        backgroundColor: '#D9534F',
         width: 70,
         borderRadius: 10,
         justifyContent: "center",

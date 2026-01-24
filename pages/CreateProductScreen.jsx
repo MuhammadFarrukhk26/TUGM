@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
     View,
     StyleSheet,
@@ -16,7 +16,7 @@ import MaterialIcons from 'react-native-vector-icons/MaterialIcons';
 import Feather from 'react-native-vector-icons/Feather';
 import Entypo from 'react-native-vector-icons/Entypo';
 import FontAwesome5 from 'react-native-vector-icons/FontAwesome5'; // Import FontAwesome5 for specific icons
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import axios from 'axios';
 import config from '../config';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -34,6 +34,10 @@ const productColorsOptions = [
 
 const CreateProductScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute();
+    const editProduct = route.params?.product;
+    const isEdit = route.params?.isEdit || false;
+    
     const [price, setPrice] = useState('');
     const [currentStep, setCurrentStep] = useState(1);
     const [productImages, setProductImages] = useState([]);
@@ -55,6 +59,25 @@ const CreateProductScreen = () => {
 
     const [isStep1Valid, setIsStep1Valid] = useState(false);
     const [isStep2Valid, setIsStep2Valid] = useState(false);
+
+    // Load product data if editing
+    useEffect(() => {
+        if (isEdit && editProduct) {
+            setProductTitle(editProduct.title || editProduct.name || '');
+            setProductDescription(editProduct.description || '');
+            setPrice(editProduct.price?.toString() || '');
+            setProductImages(editProduct.images || []);
+            setSelectedListing(editProduct.listing || '');
+            setSelectedProductSizes(editProduct.sizes || []);
+            setSelectedColors(editProduct.colors || []);
+            setSearchTags(editProduct.tags || []);
+            setMinimumQuantity(editProduct.minimumQuantity?.toString() || '');
+            setWeight(editProduct.weight?.toString() || '');
+            setDimension(editProduct.dimension || '');
+            setShippingOption(editProduct.shipping || '');
+            setCategories(editProduct.categories || []);
+        }
+    }, [isEdit, editProduct]);
 
 
     React.useEffect(() => {
@@ -145,46 +168,107 @@ const CreateProductScreen = () => {
         try {
             const userId = await AsyncStorage.getItem("userId");
 
-            const formData = new FormData();
+            if (isEdit && editProduct?._id) {
+                // Update existing product - separate APIs for details and images
+                
+                // Step 1: Update product details
+                const detailsFormData = new FormData();
+                detailsFormData.append("userId", userId);
+                detailsFormData.append("title", productTitle);
+                detailsFormData.append("size", selectedProductSizes);
+                detailsFormData.append("description", productDescription);
+                detailsFormData.append("listing_type", selectedListing);
+                detailsFormData.append("shipping_type", shippingOption);
+                detailsFormData.append("categories", JSON.stringify(categories));
+                detailsFormData.append("tags", JSON.stringify(searchTags));
+                detailsFormData.append("colors", JSON.stringify(selectedColors));
+                detailsFormData.append("weight", weight);
+                detailsFormData.append("dimensions", dimension);
+                detailsFormData.append("quantity", minimumQuantity);
+                detailsFormData.append("price", price);
+                detailsFormData.append("stock", selectedListing === "Out Of Stock" ? 0 : 1);
 
-            // append text fields
-            formData.append("userId", userId);
-            formData.append("title", productTitle);
-            formData.append("size", selectedProductSizes);
-            formData.append("description", productDescription);
-            formData.append("listing_type", selectedListing);
-            formData.append("shipping_type", shippingOption);
-            formData.append("categories", JSON.stringify(categories));
-            formData.append("tags", JSON.stringify(searchTags));
-            formData.append("colors", JSON.stringify(selectedColors));
-            formData.append("weight", weight);
-            formData.append("dimensions", dimension);
-            formData.append("quantity", minimumQuantity);
-            formData.append("price", price);
-            formData.append("stock", selectedListing === "Out Of Stock" ? 0 : 1);
+                const detailsResponse = await axios.put(
+                    `${config.baseUrl}/product/update/${editProduct._id}`,
+                    detailsFormData,
+                    {
+                        headers: {
+                            "Content-Type": "multipart/form-data",
+                        },
+                    }
+                );
 
-            // append multiple images
-            productImages.forEach((uri, index) => {
-                formData.append("images", {
-                    uri,
-                    type: "image/jpeg",
-                    name: `product_${index}.jpg`
+                if (detailsResponse.status === 200) {
+                    // Step 2: Upload new images separately
+                    const newImages = productImages.filter(
+                        uri => uri.startsWith('file://') || uri.startsWith('content://')
+                    );
+
+                    if (newImages.length > 0) {
+                        for (let i = 0; i < newImages.length; i++) {
+                            const imageFormData = new FormData();
+                            imageFormData.append("image", {
+                                uri: newImages[i],
+                                type: "image/jpeg",
+                                name: `product_${i}.jpg`
+                            });
+
+                            await axios.put(
+                                `${config.baseUrl}/product/update/image/${editProduct._id}`,
+                                imageFormData,
+                                {
+                                    headers: {
+                                        "Content-Type": "multipart/form-data",
+                                    },
+                                }
+                            );
+                        }
+                    }
+
+                    ToastAndroid.show("Product Updated Successfully!", ToastAndroid.SHORT);
+                    navigation.goBack();
+                }
+            } else {
+                // Create new product
+                const formData = new FormData();
+                formData.append("userId", userId);
+                formData.append("title", productTitle);
+                formData.append("size", selectedProductSizes);
+                formData.append("description", productDescription);
+                formData.append("listing_type", selectedListing);
+                formData.append("shipping_type", shippingOption);
+                formData.append("categories", JSON.stringify(categories));
+                formData.append("tags", JSON.stringify(searchTags));
+                formData.append("colors", JSON.stringify(selectedColors));
+                formData.append("weight", weight);
+                formData.append("dimensions", dimension);
+                formData.append("quantity", minimumQuantity);
+                formData.append("price", price);
+                formData.append("stock", selectedListing === "Out Of Stock" ? 0 : 1);
+
+                // append multiple images
+                productImages.forEach((uri, index) => {
+                    formData.append("images", {
+                        uri,
+                        type: "image/jpeg",
+                        name: `product_${index}.jpg`
+                    });
                 });
-            });
 
-            const response = await axios.post(`${config.baseUrl}/product/create`, formData, {
-                headers: {
-                    "Content-Type": "multipart/form-data",
-                },
-            });
+                const response = await axios.post(`${config.baseUrl}/product/create`, formData, {
+                    headers: {
+                        "Content-Type": "multipart/form-data",
+                    },
+                });
 
-            if (response.status === 200) {
-                ToastAndroid.show("Product Published!", ToastAndroid.SHORT);
-                navigation.goBack();
+                if (response.status === 200) {
+                    ToastAndroid.show("Product Published!", ToastAndroid.SHORT);
+                    navigation.goBack();
+                }
             }
         } catch (error) {
-            console.log("Create product error:", JSON.stringify(error));
-            ToastAndroid.show("Failed to publish product", ToastAndroid.SHORT);
+            console.log("Product error:", JSON.stringify(error));
+            ToastAndroid.show(isEdit ? "Failed to update product" : "Failed to publish product", ToastAndroid.SHORT);
         }
     };
 
@@ -221,33 +305,27 @@ const CreateProductScreen = () => {
             </TouchableWithoutFeedback>
         </Modal>
     );
-
     return (
         <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
-            {/* Header */}
+            {/* Header Section */}
             <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
-                <View style={{ flex: 1 }}></View> {/* Spacer to push title to center */}
+                <View style={{ flex: 1 }} />
                 <Text style={styles.headerTitle}>Add new product</Text>
                 <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
                     <Entypo size={25} name="cross" style={{ color: "#fff" }} />
                 </TouchableOpacity>
             </View>
 
-            {/* PROGRESS BAR */}
+            {/* Progress Bar Section */}
             <View style={{ flexDirection: "row", alignItems: "center", marginTop: 20 }}>
-
-                <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: "#FFA500" }}></View>
-
-                <View style={{ flex: 1, height: 5, borderRadius: 100, backgroundColor: currentStep >= 2 ? "#FFA500" : "#8F8F93" }}></View>
-
-                <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: currentStep >= 2 ? "#FFA500" : "#8F8F93" }}></View>
-
-                <View style={{ flex: 1, height: 5, borderRadius: 100, backgroundColor: currentStep === 3 ? "#FFA500" : "#8F8F93" }}></View>
-
-                <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: currentStep === 3 ? "#FFA500" : "#8F8F93" }}></View>
-
+                <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: "#FFA500" }} />
+                <View style={{ flex: 1, height: 5, borderRadius: 100, backgroundColor: currentStep >= 2 ? "#FFA500" : "#8F8F93" }} />
+                <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: currentStep >= 2 ? "#FFA500" : "#8F8F93" }} />
+                <View style={{ flex: 1, height: 5, borderRadius: 100, backgroundColor: currentStep === 3 ? "#FFA500" : "#8F8F93" }} />
+                <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: currentStep === 3 ? "#FFA500" : "#8F8F93" }} />
             </View>
 
+            {/* STEP 1: Images, Listing, and Sizes */}
             {currentStep === 1 && (
                 <View style={{ marginTop: 20 }}>
                     {productImages.length === 0 ? (
@@ -258,18 +336,26 @@ const CreateProductScreen = () => {
                         </TouchableOpacity>
                     ) : (
                         <View style={styles.uploadedImagesGrid}>
-
-                            <Image source={{ uri: productImages[0] }} style={[styles.mainUploadedImage]} />
+                            <TouchableOpacity 
+                                onPress={handleImagePick}
+                                style={styles.mainImageWrapper}
+                            >
+                                <Image source={{ uri: productImages[0] }} style={styles.mainUploadedImage} />
+                                <TouchableOpacity 
+                                    onPress={() => handleRemoveImage(productImages[0])} 
+                                    style={[styles.removeImageButton, { top: 10, right: 10 }]}
+                                >
+                                    <FontAwesome5 name="times-circle" size={20} color="red" solid />
+                                </TouchableOpacity>
+                            </TouchableOpacity>
                             <View style={styles.thumbnailContainer}>
-                                {productImages.map((uri, index) => (
-                                    index > 0 && (
-                                        <View key={index} style={styles.uploadedImageWrapper}>
-                                            <Image source={{ uri: uri }} style={styles.uploadedImage} />
-                                            <TouchableOpacity onPress={() => handleRemoveImage(uri)} style={styles.removeImageButton}>
-                                                <FontAwesome5 name="times-circle" size={20} color="red" solid />
-                                            </TouchableOpacity>
-                                        </View>
-                                    )
+                                {productImages.filter((_, index) => index > 0).map((uri) => (
+                                    <View key={uri} style={styles.uploadedImageWrapper}>
+                                        <Image source={{ uri }} style={styles.uploadedImage} />
+                                        <TouchableOpacity onPress={() => handleRemoveImage(uri)} style={styles.removeImageButton}>
+                                            <FontAwesome5 name="times-circle" size={20} color="red" solid />
+                                        </TouchableOpacity>
+                                    </View>
                                 ))}
                                 {productImages.length < 5 && (
                                     <TouchableOpacity style={styles.addImageButton} onPress={handleImagePick}>
@@ -283,46 +369,31 @@ const CreateProductScreen = () => {
                     <Text style={styles.tipText}>Did you know? Buyers like to browse images that are clear, non-blurry and tells easily what your product is? Make your product image counts!</Text>
 
                     <Text style={styles.sectionTitle}>Select Listing</Text>
-                    <TouchableOpacity
-                        style={styles.selectOptionButton}
-                        onPress={() => setListingModalVisible(true)}
-                    >
+                    <TouchableOpacity style={styles.selectOptionButton} onPress={() => setListingModalVisible(true)}>
                         <Text style={styles.selectOptionText}>{selectedListing || 'In Stock'}</Text>
                         <MaterialIcons name="keyboard-arrow-right" size={25} color={"#fff"} />
                     </TouchableOpacity>
                     {renderBottomModal(isListingModalVisible, listingOptions, setSelectedListing, selectedListing, 'listing')}
 
-                    {selectedListing === 'Few Unit Left' && (
-                        <Text style={styles.listingStatusText}>Few Unit Left</Text>
-                    )}
-                    {selectedListing === 'Out Of Stock' && (
-                        <Text style={styles.listingStatusText}>Out Of Stock</Text>
-                    )}
-
+                    {selectedListing === 'Few Unit Left' && <Text style={styles.listingStatusText}>Few Unit Left</Text>}
+                    {selectedListing === 'Out Of Stock' && <Text style={styles.listingStatusText}>Out Of Stock</Text>}
 
                     <Text style={styles.sectionTitle}>Product Sizes</Text>
                     <View style={styles.sizeOptionsContainer}>
                         {productSizesOptions.map((i) => (
                             <TouchableOpacity
                                 key={i}
-                                style={[
-                                    styles.sizeOptionButton,
-                                    selectedProductSizes.includes(i) && styles.sizeOptionButtonSelected
-                                ]}
+                                style={[styles.sizeOptionButton, selectedProductSizes.includes(i) && styles.sizeOptionButtonSelected]}
                                 onPress={() => toggleProductSize(i)}
                             >
-                                <Text
-                                    style={[
-                                        styles.sizeOptionText,
-                                        selectedProductSizes.includes(i) && styles.sizeOptionTextSelected
-                                    ]}
-                                >{i}</Text>
+                                <Text style={[styles.sizeOptionText, selectedProductSizes.includes(i) && styles.sizeOptionTextSelected]}>{i}</Text>
                             </TouchableOpacity>
                         ))}
                     </View>
                 </View>
             )}
 
+            {/* STEP 2: Title and Description */}
             {currentStep === 2 && (
                 <View style={{ marginTop: 40 }}>
                     <Text style={styles.inputLabel}>Product Title</Text>
@@ -349,7 +420,6 @@ const CreateProductScreen = () => {
                         </View>
                         <TextInput
                             style={[styles.textInput, styles.descriptionTextInput]}
-                            placeholder=""
                             placeholderTextColor="#666"
                             multiline
                             numberOfLines={10}
@@ -361,6 +431,7 @@ const CreateProductScreen = () => {
                 </View>
             )}
 
+            {/* STEP 3: Categories, Tags, and Shipping */}
             {currentStep === 3 && (
                 <View style={{ marginTop: 40 }}>
                     <Text style={styles.sectionTitle}>Categories</Text>
@@ -440,10 +511,7 @@ const CreateProductScreen = () => {
                     </View>
 
                     <Text style={styles.sectionTitle}>Shipping</Text>
-                    <TouchableOpacity
-                        style={styles.selectOptionButton}
-                        onPress={() => setShippingModalVisible(true)}
-                    >
+                    <TouchableOpacity style={styles.selectOptionButton} onPress={() => setShippingModalVisible(true)}>
                         <Text style={styles.selectOptionText}>{shippingOption || 'Select option'}</Text>
                         <MaterialIcons name="keyboard-arrow-right" size={25} color={"#fff"} />
                     </TouchableOpacity>
@@ -451,22 +519,76 @@ const CreateProductScreen = () => {
 
                     <Text style={styles.sectionTitle}>Product color</Text>
                     <View style={styles.colorOptionsContainer}>
-                        {productColorsOptions.map((color) => (
-                            <TouchableOpacity
-                                key={color}
-                                style={[
-                                    styles.colorOptionButton,
-                                    { backgroundColor: color.toLowerCase() },
-                                    selectedColors.includes(color) && styles.colorOptionButtonSelected,
-                                ]}
-                                onPress={() => toggleProductColor(color)}
-                            >
-                                <Text style={{color:"black"}}
+                        {productColorsOptions.map((color) => {
+                            const colorMap = {
+                                'Red': '#FF0000',
+                                'Yellow': '#FFFF00',
+                                'Orange': '#FFA500',
+                                'Pink': '#FFC0CB',
+                                'White': '#FFFFFF',
+                                'Black': '#000000',
+                                'Brown': '#A52A2A',
+                                'Magenta': '#FF00FF',
+                                'Purple': '#800080',
+                                'Blue': '#0000FF',
+                                'Cyan': '#00FFFF',
+                                'Lime': '#00FF00',
+                                'Teal': '#008080',
+                                'Indigo': '#4B0082',
+                                'Violet': '#EE82EE',
+                                'Gold': '#FFD700',
+                                'Silver': '#C0C0C0',
+                                'Maroon': '#800000',
+                                'Olive': '#808000',
+                                'Navy': '#000080',
+                                'Coral': '#FF7F50',
+                                'Salmon': '#FA8072',
+                                'Khaki': '#F0E68C',
+                                'Turquoise': '#40E0D0',
+                                'Lavender': '#E6E6FA',
+                                'Plum': '#DDA0DD',
+                                'Chocolate': '#D2691E',
+                                'Crimson': '#DC143C',
+                                'Orchid': '#DA70D6',
+                                'Tan': '#D2B48C',
+                                'Beige': '#F5F5DC',
+                                'Mint': '#98FF98',
+                                'SkyBlue': '#87CEEB',
+                                'Peach': '#FFDAB9',
+                                'Amber': '#FFBF00',
+                                'Emerald': '#50C878',
+                                'SteelBlue': '#4682B4',
+                                'SlateGray': '#708090',
+                                'Rose': '#FF007F',
+                            };
+                            const bgColor = colorMap[color] || '#333';
+                            const isSelected = selectedColors.includes(color);
+                            
+                            return (
+                                <TouchableOpacity
+                                    key={color}
+                                    style={[
+                                        styles.colorOptionButton,
+                                        {
+                                            backgroundColor: isSelected ? bgColor : '#171717',
+                                            borderColor: isSelected ? bgColor : '#333',
+                                            borderWidth: isSelected ? 3 : 1,
+                                        }
+                                    ]}
+                                    onPress={() => toggleProductColor(color)}
                                 >
-                                    {color}
-                                </Text>
-                            </TouchableOpacity>
-                        ))}
+                                    <Text style={[
+                                        styles.colorOptionText,
+                                        {
+                                            color: isSelected && (color === 'White' || color === 'Yellow' || color === 'Cyan' || color === 'Lime' || color === 'Lavender' || color === 'Khaki' || color === 'Beige' || color === 'Mint' || color === 'SkyBlue' || color === 'Peach' || color === 'Gold' || color === 'Silver' || color === 'Tan') ? '#000' : isSelected ? '#FFF' : '#fff',
+                                            fontWeight: isSelected ? 'bold' : 'normal',
+                                        }
+                                    ]}>
+                                        {color}
+                                    </Text>
+                                </TouchableOpacity>
+                            );
+                        })}
                     </View>
 
                     <Text style={styles.sectionTitle}>Price</Text>
@@ -474,35 +596,307 @@ const CreateProductScreen = () => {
                 </View>
             )}
 
-            {/* Dynamic Next/Publish Button */}
-            {currentStep < 3 && (
+            {/* Navigation Buttons */}
+            {currentStep < 3 ? (
                 <TouchableOpacity
-                    style={[
-                        styles.bottomButton,
-                        (currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid) ? styles.buttonDisabled : styles.buttonEnabled
-                    ]}
+                    style={[styles.bottomButton, (currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid) ? styles.buttonDisabled : styles.buttonEnabled]}
                     onPress={handleNext}
                     disabled={(currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid)}
                 >
                     <Text style={styles.bottomButtonText}>Next</Text>
                 </TouchableOpacity>
-            )}
-
-            {currentStep === 3 && (
+            ) : (
                 <TouchableOpacity
-                    style={[
-                        styles.bottomButton,
-                        !(categories.length > 0 && searchTags.length > 0 && minimumQuantity.trim() && weight.trim() && dimension.trim() && shippingOption && selectedColors.length > 0) ? styles.buttonDisabled : styles.buttonEnabled
-                    ]}
+                    style={[styles.bottomButton, !(categories.length > 0 && searchTags.length > 0 && minimumQuantity && weight && dimension && shippingOption && selectedColors.length > 0) ? styles.buttonDisabled : styles.buttonEnabled]}
                     onPress={handlePublish}
-                    disabled={!(categories.length > 0 && searchTags.length > 0 && minimumQuantity.trim() && weight.trim() && dimension.trim() && shippingOption && selectedColors.length > 0)}
+                    disabled={!(categories.length > 0 && searchTags.length > 0 && minimumQuantity && weight && dimension && shippingOption && selectedColors.length > 0)}
                 >
                     <Text style={styles.bottomButtonText}>Publish</Text>
                 </TouchableOpacity>
             )}
-
         </ScrollView>
     );
+    // return (
+    //     <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.container}>
+    //         {/* Header */}
+    //         <View style={{ flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+    //             <View style={{ flex: 1 }}></View> {/* Spacer to push title to center */}
+    //             <Text style={styles.headerTitle}>Add new product</Text>
+    //             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.closeButton}>
+    //                 <Entypo size={25} name="cross" style={{ color: "#fff" }} />
+    //             </TouchableOpacity>
+    //         </View>
+
+    //         {/* PROGRESS BAR */}
+    //         <View style={{ flexDirection: "row", alignItems: "center", marginTop: 20 }}>
+
+    //             <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: "#FFA500" }}></View>
+
+    //             <View style={{ flex: 1, height: 5, borderRadius: 100, backgroundColor: currentStep >= 2 ? "#FFA500" : "#8F8F93" }}></View>
+
+    //             <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: currentStep >= 2 ? "#FFA500" : "#8F8F93" }}></View>
+
+    //             <View style={{ flex: 1, height: 5, borderRadius: 100, backgroundColor: currentStep === 3 ? "#FFA500" : "#8F8F93" }}></View>
+
+    //             <View style={{ width: 16, height: 16, borderRadius: 100, backgroundColor: currentStep === 3 ? "#FFA500" : "#8F8F93" }}></View>
+
+    //         </View>
+
+    //         {currentStep === 1 && (
+    //             <View style={{ marginTop: 20 }}>
+    //                 {productImages.length === 0 ? (
+    //                     <TouchableOpacity style={styles.imageUploadCard} onPress={handleImagePick}>
+    //                         <Text style={styles.imageUploadText}>Upload product image</Text>
+    //                         <Feather name="image" size={25} color={"#8F8F93"} style={{ marginTop: 8 }} />
+    //                         <Text style={styles.imageUploadSubText}>You can upload maximum of 5 images</Text>
+    //                     </TouchableOpacity>
+    //                 ) : (
+    //                     <View style={styles.uploadedImagesGrid}>
+
+    //                         <Image source={{ uri: productImages[0] }} style={[styles.mainUploadedImage]} />
+    //                         <View style={styles.thumbnailContainer}>
+    //                             {productImages.map((uri, index) => (
+    //                                 index > 0 && (
+    //                                     <View key={index} style={styles.uploadedImageWrapper}>
+    //                                         <Image source={{ uri: uri }} style={styles.uploadedImage} />
+    //                                         <TouchableOpacity onPress={() => handleRemoveImage(uri)} style={styles.removeImageButton}>
+    //                                             <FontAwesome5 name="times-circle" size={20} color="red" solid />
+    //                                         </TouchableOpacity>
+    //                                     </View>
+    //                                 )
+    //                             ))}
+    //                             {productImages.length < 5 && (
+    //                                 <TouchableOpacity style={styles.addImageButton} onPress={handleImagePick}>
+    //                                     <FontAwesome5 name="plus" size={30} color="#666" />
+    //                                 </TouchableOpacity>
+    //                             )}
+    //                         </View>
+    //                     </View>
+    //                 )}
+
+    //                 <Text style={styles.tipText}>Did you know? Buyers like to browse images that are clear, non-blurry and tells easily what your product is? Make your product image counts!</Text>
+
+    //                 <Text style={styles.sectionTitle}>Select Listing</Text>
+    //                 <TouchableOpacity
+    //                     style={styles.selectOptionButton}
+    //                     onPress={() => setListingModalVisible(true)}
+    //                 >
+    //                     <Text style={styles.selectOptionText}>{selectedListing || 'In Stock'}</Text>
+    //                     <MaterialIcons name="keyboard-arrow-right" size={25} color={"#fff"} />
+    //                 </TouchableOpacity>
+    //                 {renderBottomModal(isListingModalVisible, listingOptions, setSelectedListing, selectedListing, 'listing')}
+
+    //                 {selectedListing === 'Few Unit Left' && (
+    //                     <Text style={styles.listingStatusText}>Few Unit Left</Text>
+    //                 )}
+    //                 {selectedListing === 'Out Of Stock' && (
+    //                     <Text style={styles.listingStatusText}>Out Of Stock</Text>
+    //                 )}
+
+
+    //                 <Text style={styles.sectionTitle}>Product Sizes</Text>
+    //                 <View style={styles.sizeOptionsContainer}>
+    //                     {productSizesOptions.map((i) => (
+    //                         <TouchableOpacity
+    //                             key={i}
+    //                             style={[
+    //                                 styles.sizeOptionButton,
+    //                                 selectedProductSizes.includes(i) && styles.sizeOptionButtonSelected
+    //                             ]}
+    //                             onPress={() => toggleProductSize(i)}
+    //                         >
+    //                             <Text
+    //                                 style={[
+    //                                     styles.sizeOptionText,
+    //                                     selectedProductSizes.includes(i) && styles.sizeOptionTextSelected
+    //                                 ]}
+    //                             >{i}</Text>
+    //                         </TouchableOpacity>
+    //                     ))}
+    //                 </View>
+    //             </View>
+    //         )}
+
+    //         {currentStep === 2 && (
+    //             <View style={{ marginTop: 40 }}>
+    //                 <Text style={styles.inputLabel}>Product Title</Text>
+    //                 <TextInput
+    //                     style={styles.textInput}
+    //                     placeholder="Jacket Name"
+    //                     placeholderTextColor="#666"
+    //                     value={productTitle}
+    //                     onChangeText={setProductTitle}
+    //                 />
+
+    //                 <Text style={styles.inputLabel}>Product description</Text>
+    //                 <View style={styles.descriptionInputContainer}>
+    //                     <View style={styles.descriptionToolbar}>
+    //                         <Text style={styles.descriptionParagraph}>Paragraph</Text>
+    //                         <View style={styles.descriptionIcons}>
+    //                             <FontAwesome5 name="bold" size={16} color="#fff" style={styles.descriptionIcon} />
+    //                             <FontAwesome5 name="italic" size={16} color="#fff" style={styles.descriptionIcon} />
+    //                             <FontAwesome5 name="underline" size={16} color="#fff" style={styles.descriptionIcon} />
+    //                             <FontAwesome5 name="align-left" size={16} color="#fff" style={styles.descriptionIcon} />
+    //                             <FontAwesome5 name="list-ul" size={16} color="#fff" style={styles.descriptionIcon} />
+    //                             <FontAwesome5 name="list-ol" size={16} color="#fff" style={styles.descriptionIcon} />
+    //                         </View>
+    //                     </View>
+    //                     <TextInput
+    //                         style={[styles.textInput, styles.descriptionTextInput]}
+    //                         placeholder=""
+    //                         placeholderTextColor="#666"
+    //                         multiline
+    //                         numberOfLines={10}
+    //                         value={productDescription}
+    //                         onChangeText={setProductDescription}
+    //                         textAlignVertical="top"
+    //                     />
+    //                 </View>
+    //             </View>
+    //         )}
+
+    //         {currentStep === 3 && (
+    //             <View style={{ marginTop: 40 }}>
+    //                 <Text style={styles.sectionTitle}>Categories</Text>
+    //                 <View style={styles.tagInputContainer}>
+    //                     {categories.map((category, index) => (
+    //                         <View key={index} style={styles.tag}>
+    //                             <Text style={styles.tagText}>{category}</Text>
+    //                             <TouchableOpacity onPress={() => removeCategory(category)} style={styles.tagCloseButton}>
+    //                                 <FontAwesome5 name="times" size={12} color="#fff" />
+    //                             </TouchableOpacity>
+    //                         </View>
+    //                     ))}
+    //                     <TextInput
+    //                         style={styles.tagTextInput}
+    //                         placeholderTextColor="#666"
+    //                         value={newCategory}
+    //                         onChangeText={setNewCategory}
+    //                         onSubmitEditing={addCategory}
+    //                         returnKeyType="done"
+    //                     />
+    //                 </View>
+
+    //                 <Text style={styles.sectionTitle}>Search Tags</Text>
+    //                 <View style={styles.tagInputContainer}>
+    //                     {searchTags.map((tag, index) => (
+    //                         <View key={index} style={styles.tag}>
+    //                             <Text style={styles.tagText}>{tag}</Text>
+    //                             <TouchableOpacity onPress={() => removeSearchTag(tag)} style={styles.tagCloseButton}>
+    //                                 <FontAwesome5 name="times" size={12} color="#fff" />
+    //                             </TouchableOpacity>
+    //                         </View>
+    //                     ))}
+    //                     <TextInput
+    //                         style={styles.tagTextInput}
+    //                         placeholder="Tag"
+    //                         placeholderTextColor="#666"
+    //                         value={newSearchTag}
+    //                         onChangeText={setNewSearchTag}
+    //                         onSubmitEditing={addSearchTag}
+    //                         returnKeyType="done"
+    //                     />
+    //                 </View>
+
+    //                 <Text style={styles.sectionTitle}>Minimum Quantity</Text>
+    //                 <TextInput
+    //                     style={styles.textInput}
+    //                     placeholder="5"
+    //                     placeholderTextColor="#666"
+    //                     keyboardType="numeric"
+    //                     value={minimumQuantity}
+    //                     onChangeText={setMinimumQuantity}
+    //                 />
+
+    //                 <Text style={styles.sectionTitle}>Weight</Text>
+    //                 <View style={styles.inlineInputs}>
+    //                     <TextInput
+    //                         style={[styles.textInput, styles.inlineInputHalf]}
+    //                         placeholder="7"
+    //                         placeholderTextColor="#666"
+    //                         keyboardType="numeric"
+    //                         value={weight}
+    //                         onChangeText={setWeight}
+    //                     />
+    //                     <Text style={styles.inlineInputLabel}>oz</Text>
+    //                 </View>
+
+    //                 <Text style={styles.sectionTitle}>Dimension</Text>
+    //                 <View style={styles.inlineInputs}>
+    //                     <TextInput
+    //                         style={[styles.textInput, styles.inlineInputHalf]}
+    //                         placeholder="12 × 12 × 12"
+    //                         placeholderTextColor="#666"
+    //                         value={dimension}
+    //                         onChangeText={setDimension}
+    //                     />
+    //                     <Text style={styles.inlineInputLabel}>in</Text>
+    //                 </View>
+
+    //                 <Text style={styles.sectionTitle}>Shipping</Text>
+    //                 <TouchableOpacity
+    //                     style={styles.selectOptionButton}
+    //                     onPress={() => setShippingModalVisible(true)}
+    //                 >
+    //                     <Text style={styles.selectOptionText}>{shippingOption || 'Select option'}</Text>
+    //                     <MaterialIcons name="keyboard-arrow-right" size={25} color={"#fff"} />
+    //                 </TouchableOpacity>
+    //                 {renderBottomModal(isShippingModalVisible, shippingOptions, setShippingOption, shippingOption, 'shipping')}
+
+    //                 <Text style={styles.sectionTitle}>Product color</Text>
+    //                 <View style={styles.colorOptionsContainer}>
+    //                     {productColorsOptions.map((color) => (
+    //                         <TouchableOpacity
+    //                             key={color}
+    //                             style={[
+    //                                 styles.colorOptionButton,
+    //                                 { backgroundColor: color.toLowerCase() },
+    //                                 selectedColors.includes(color) && styles.colorOptionButtonSelected,
+    //                             ]}
+    //                             onPress={() => toggleProductColor(color)}
+    //                         >
+    //                             <Text style={{color:"black"}}
+    //                             >
+    //                                 {color}
+    //                             </Text>
+    //                         </TouchableOpacity>
+    //                     ))}
+    //                 </View>
+
+    //                 <Text style={styles.sectionTitle}>Price</Text>
+    //                 <TextInput style={styles.textInput} placeholder="100" placeholderTextColor="#666" keyboardType="numeric" value={price} onChangeText={setPrice} />
+    //             </View>
+    //         )}
+
+    //         {/* Dynamic Next/Publish Button */}
+    //         {currentStep < 3 && (
+    //             <TouchableOpacity
+    //                 style={[
+    //                     styles.bottomButton,
+    //                     (currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid) ? styles.buttonDisabled : styles.buttonEnabled
+    //                 ]}
+    //                 onPress={handleNext}
+    //                 disabled={(currentStep === 1 && !isStep1Valid) || (currentStep === 2 && !isStep2Valid)}
+    //             >
+    //                 <Text style={styles.bottomButtonText}>Next</Text>
+    //             </TouchableOpacity>
+    //         )}
+
+    //         {currentStep === 3 && (
+    //             <TouchableOpacity
+    //                 style={[
+    //                     styles.bottomButton,
+    //                     !(categories.length > 0 && searchTags.length > 0 && minimumQuantity.trim() && weight.trim() && dimension.trim() && shippingOption && selectedColors.length > 0) ? styles.buttonDisabled : styles.buttonEnabled
+    //                 ]}
+    //                 onPress={handlePublish}
+    //                 disabled={!(categories.length > 0 && searchTags.length > 0 && minimumQuantity.trim() && weight.trim() && dimension.trim() && shippingOption && selectedColors.length > 0)}
+    //             >
+    //                 <Text style={styles.bottomButtonText}>Publish</Text>
+    //             </TouchableOpacity>
+    //         )}
+
+    //     </ScrollView>
+    // );
 };
 
 const styles = StyleSheet.create({
@@ -654,6 +1048,13 @@ const styles = StyleSheet.create({
         height: 250, // Larger size for the main image
         borderRadius: 8,
         marginBottom: 10, // Space below the main image
+    },
+    mainImageWrapper: {
+        position: 'relative',
+        width: '100%',
+        height: 250,
+        borderRadius: 8,
+        overflow: 'hidden',
     },
     thumbnailContainer: {
         flexDirection: 'row',

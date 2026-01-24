@@ -103,7 +103,7 @@ const RegisterScreen = () => {
                         <Text style={styles.loginButtonText}>Sign Up</Text>
                     </TouchableOpacity>
 
-                    <Text style={styles.orText}>Or</Text>
+                    {/* <Text style={styles.orText}>Or</Text> */}
 {/* 
                     <TouchableOpacity style={styles.socialButton}>
                         <Image source={{ uri: "https://cdn1.iconfinder.com/data/icons/google-s-logo/150/Google_Icons-09-512.png" }} style={styles.socialIcon} resizeMode="contain" />

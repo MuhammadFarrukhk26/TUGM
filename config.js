@@ -17,4 +17,13 @@ const config = {
     musicApi: "https://api.jamendo.com/v3.0/tracks/?client_id=982a9a70&limit=10&format=json"
 }
 
+// const config = {
+//     baseUrl: "http://192.168.1.37:3001/api/v1",
+//     baseUrl2: "http://192.168.1.37:3001/api/v1",
+//     baseUrl3: "http://192.168.1.37:3001/api/v1",
+//     baseUrl4: "http://192.168.1.37:3001/api/v1",
+//     socketUrl: "http://192.168.1.37:3001",
+//     appId: "7235a8177bd74d14a5d615df38e6fcf5",
+//     musicApi: "https://api.jamendo.com/v3.0/tracks/?client_id=982a9a70&limit=10&format=json"
+// }
 export default config

@@ -60,9 +60,17 @@ const Shipments = () => {
         <ScrollView style={styles.container}>
             {/* Header */}
             <View style={styles.header}>
-                <Text></Text>
-                <Text style={styles.headerTitle}>Shipments</Text>
-                <TouchableOpacity onPress={() => navigation.navigate("Profile")}><AntDesign name="close" size={24} color="#A0A0A0" /></TouchableOpacity>
+                <View style={{ flex: 1 }}>
+                    <Text></Text>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+                    <Text style={styles.headerTitle}>Shipments</Text>
+                </View>
+                <View style={{ flex: 1, justifyContent: 'flex-end', alignItems: 'center' }}>
+                    <TouchableOpacity onPress={() => navigation.navigate("Profile")}>
+                        <AntDesign name="close" size={24} color="#A0A0A0" />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             {/* Summary Section */}
@@ -95,7 +103,9 @@ const Shipments = () => {
 
             {/* Search Bar */}
             <View style={styles.searchContainer}>
-                <Feather name="search" size={20} color="#A0A0A0" style={styles.searchIcon} /> {/* Search icon */}
+                <View style={styles.searchIcon}>
+                    <Feather name="search" size={20} color="#A0A0A0" />
+                </View>
                 <TextInput
                     style={styles.searchInput}
                     placeholder="Username, order ID..."
@@ -108,15 +118,33 @@ const Shipments = () => {
                 <View style={{ minWidth: 1000 }}>
                     {/* Table Header */}
                     <View style={[styles.listItem, { backgroundColor: '#222' }]}>
-                        <Text style={[styles.tableHeaderCell, { width: 50 }]}>#</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 120 }]}>Recipient</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 100 }]}>Order Date</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 60 }]}>Items</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 80 }]}>Value</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 80 }]}>Weight</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 120 }]}>Dimensions</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 120 }]}>Status</Text>
-                        <Text style={[styles.tableHeaderCell, { width: 200, marginLeft: 30 }]}>Tracking</Text>
+                        <View style={{ width: 50 }}>
+                            <Text style={styles.tableHeaderCell}>#</Text>
+                        </View>
+                        <View style={{ width: 120 }}>
+                            <Text style={styles.tableHeaderCell}>Recipient</Text>
+                        </View>
+                        <View style={{ width: 100 }}>
+                            <Text style={styles.tableHeaderCell}>Order Date</Text>
+                        </View>
+                        <View style={{ width: 60 }}>
+                            <Text style={styles.tableHeaderCell}>Items</Text>
+                        </View>
+                        <View style={{ width: 80 }}>
+                            <Text style={styles.tableHeaderCell}>Value</Text>
+                        </View>
+                        <View style={{ width: 80 }}>
+                            <Text style={styles.tableHeaderCell}>Weight</Text>
+                        </View>
+                        <View style={{ width: 120 }}>
+                            <Text style={styles.tableHeaderCell}>Dimensions</Text>
+                        </View>
+                        <View style={{ width: 120 }}>
+                            <Text style={styles.tableHeaderCell}>Status</Text>
+                        </View>
+                        <View style={{ width: 200, marginLeft: 30 }}>
+                            <Text style={styles.tableHeaderCell}>Tracking</Text>
+                        </View>
                     </View>
 
                     {/* Table Rows */}
@@ -131,13 +159,27 @@ const Shipments = () => {
                                     }
                                 }}
                             >
-                                <Text style={[styles.tableCell, { width: 50 }]}>{index + 1}</Text>
-                                <Text style={[styles.tableCell, { width: 120 }]}>{item.userId?.username}</Text>
-                                <Text style={[styles.tableCell, { width: 100 }]}>{new Date(item.createdAt).toLocaleDateString()}</Text>
-                                <Text style={[styles.tableCell, { width: 60 }]}>{1}</Text>
-                                <Text style={[styles.tableCell, { width: 80 }]}>${item?.total}</Text>
-                                <Text style={[styles.tableCell, { width: 80 }]}>{item.productId?.weight} oz</Text>
-                                <Text style={[styles.tableCell, { width: 120 }]}>{item.productId?.dimensions}</Text>
+                                <View style={[styles.tableCell, { width: 50 }]}>
+                                    <Text style={styles.tableCell}>{index + 1}</Text>
+                                </View>
+                                <View style={[styles.tableCell, { width: 120 }]}>
+                                    <Text style={styles.tableCell}>{item.userId?.username}</Text>
+                                </View>
+                                <View style={[styles.tableCell, { width: 100 }]}>
+                                    <Text style={styles.tableCell}>{new Date(item.createdAt).toLocaleDateString()}</Text>
+                                </View>
+                                <View style={[styles.tableCell, { width: 60 }]}>
+                                    <Text style={styles.tableCell}>{1}</Text>
+                                </View>
+                                <View style={[styles.tableCell, { width: 80 }]}>
+                                    <Text style={styles.tableCell}>${item?.total}</Text>
+                                </View>
+                                <View style={[styles.tableCell, { width: 80 }]}>
+                                    <Text style={styles.tableCell}>{item.productId?.weight} oz</Text>
+                                </View>
+                                <View style={[styles.tableCell, { width: 120 }]}>
+                                    <Text style={styles.tableCell}>{item.productId?.dimensions}</Text>
+                                </View>
                                 <View style={[styles.tableCell, { width: 120 }]}>
                                     <View style={[styles.statusBadge, getStatusStyle(item.status)]}>
                                         <Text style={styles.statusBadgeText}>{item.status}</Text>

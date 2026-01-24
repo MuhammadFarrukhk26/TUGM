@@ -14,6 +14,8 @@ import config from "../config";
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useNavigation } from '@react-navigation/core';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
+import { useDispatch } from 'react-redux';
+import { clearCart } from '../redux/cartSlice';
 
 const ProfileScreen = () => {
     const navigation = useNavigation();
@@ -21,10 +23,10 @@ const ProfileScreen = () => {
     const [image, setImage] = useState("");
     // const [image, setImage] = useState("https://randomuser.me/api/portraits/men/8.jpg");
     const [sellerMode, setSellerMode] = useState(false);
-
+    const dispatch = useDispatch()
     const menuItems = [
-        {link:"transaction_history",icon: <Feather name="repeat" size={20} color="white" />, text: 'Transaction' },
-        {link:"MyOrders",icon: <Feather name="clock" size={20} color="white" />, text: 'History' },
+        { link: "transaction_history", icon: <Feather name="repeat" size={20} color="white" />, text: 'Transaction' },
+        { link: "MyOrders", icon: <Feather name="clock" size={20} color="white" />, text: 'History' },
     ];
 
     const fetchProfileInfo = async () => {
@@ -136,7 +138,10 @@ const ProfileScreen = () => {
     useEffect(() => {
         fetchProfileInfo();
     }, []);
-
+    const logout = () => {
+        dispatch(clearCart());
+        navigation.navigate('Login');
+    }
     return (
         <View style={styles.container}>
 
@@ -149,7 +154,7 @@ const ProfileScreen = () => {
 
             <ScrollView showsVerticalScrollIndicator={false} style={styles.menu}>
                 {menuItems.map((item, index) => (
-                    <TouchableOpacity onPress={()=>navigation.navigate(item.link)} key={index} style={styles.menuItem}>
+                    <TouchableOpacity onPress={() => navigation.navigate(item.link)} key={index} style={styles.menuItem}>
                         {item.icon}
                         <Text style={styles.menuText}>{item.text}</Text>
                     </TouchableOpacity>
@@ -170,7 +175,7 @@ const ProfileScreen = () => {
                     <Text style={styles.menuText}>Support</Text>
                 </TouchableOpacity>
 
-                
+
                 <TouchableOpacity onPress={() => navigation.navigate('favourite')} style={styles.menuItem}>
                     <EvilIcons name="heart" size={25} color="white" />
                     <Text style={styles.menuText}>Favourite</Text>
@@ -224,7 +229,7 @@ const ProfileScreen = () => {
                     <Text style={{ color: 'white', fontSize: 16, marginRight: 10 }}>Seller Mode</Text>
                     <Switch value={sellerMode} onValueChange={(value) => switchCreatorMode(value)} trackColor={{ false: '#767577', true: '#34D399' }} thumbColor={sellerMode ? '#10B981' : '#f4f3f4'} />
                 </View>
-                <TouchableOpacity onPress={() => navigation.navigate('Login')} style={styles.logoutButton}>
+                <TouchableOpacity onPress={() => logout()} style={styles.logoutButton}>
                     <AntDesign name="logout" size={20} color="#FF4500" />
                     <Text style={styles.logoutText}>Log Out</Text>
                 </TouchableOpacity>
@@ -241,6 +246,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
         paddingTop: 20,
+        paddingBottom: 20,
         paddingHorizontal: 20,
     },
     header: {
@@ -264,7 +270,7 @@ const styles = StyleSheet.create({
         borderRadius: 15,
     },
     menu: {
-        marginBottom: 20,
+        marginBottom: 50,
     },
     menuItem: {
         flexDirection: 'row',

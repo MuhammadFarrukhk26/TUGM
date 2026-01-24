@@ -1,5 +1,5 @@
 import React, { useState, useMemo } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image, Modal, Pressable, Dimensions, TextInput, ToastAndroid } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image, Modal, Pressable, Dimensions, TextInput, ToastAndroid, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/core';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Entypo from 'react-native-vector-icons/Entypo';
@@ -32,47 +32,89 @@ const CheckoutScreen = () => {
     const [showSuccessModal, setShowSuccessModal] = useState(false);
 
     const total = products.reduce((sum, item) => sum + item.price * item.quantity, 0);
+    const formatDate = (date) =>
+        date.toLocaleDateString("en-GB", {
+            day: "2-digit",
+            month: "short",
+        });
 
+    const today = new Date();
+    const twoDaysLater = new Date();
+    twoDaysLater.setDate(today.getDate() + 2);
+    const deliveryDateText = `Delivery Between ${formatDate(today)} and ${formatDate(twoDaysLater)}`;
+    const shippingDateText = `${formatDate(today)} and ${formatDate(twoDaysLater)}`;
     const handleNext = async () => {
+        console.log('Handle Next Called', currentStep);
         if (currentStep === 0 && !customer_address) {
-            alert("Please add a customer address.");
+            Alert.alert("Address Required", "Please add a customer address.");
             return;
         }
+        if (currentStep === 0) {
+            const missingFields = [];
+            if (!city) missingFields.push("City");
+            if (!country) missingFields.push("Country");
+            if (!state) missingFields.push("State");
+            if (!zip) missingFields.push("Zip Code");
+            if (missingFields.length > 0) {
+                Alert.alert("Incomplete Address", `Please fill in: ${missingFields.join(", ")}`);
+                return;
+            }
+        }
         if (currentStep === 1 && !paymentMethod) {
-            alert("Please select a payment method.");
+            Alert.alert("Payment Method Required", "Please select a payment method.");
             return;
         }
         if (currentStep < steps.length - 1) {
+            console.log('Current Step:', currentStep);
             setCurrentStep(currentStep + 1);
-        } else {
-            let userId = await AsyncStorage.getItem('userId');
+        } 
+        else {
+              console.log('Last Step:', currentStep);
+            let userId = await AsyncStorage.getItem('userId');console.log()
             let paymentIntentRes = await axios.post(`${config.baseUrl}/payment/create-intent`, { amount: total * 100, currency: "usd" });
             if (!paymentIntentRes?.data?.clientSecret) {
+                console.log(paymentIntentRes?.data, 'No Response')
+                Alert.alert('Error', 'Failed to fetch payment intent');
                 throw new Error("Failed to fetch payment intent");
             }
             let clientSecret = paymentIntentRes?.data?.clientSecret
             if (clientSecret) {
                 const initResponse = await initPaymentSheet({ merchantDisplayName: "User", paymentIntentClientSecret: clientSecret })
                 if (initResponse.error) {
-                    Alert.alert(initResponse?.error?.message)
+                    Alert.alert('Payment Error', initResponse?.error?.message)
+                    console.log(initResponse?.error, 'Init Error')
                     return
                 }
                 else {
                     const paymentResponse = await presentPaymentSheet()
                     if (paymentResponse.error) {
-                        Alert.alert(paymentResponse?.error?.message)
+                        Alert.alert('Payment Error', paymentResponse?.error?.message)
+                        console.log(paymentResponse?.error, 'Payment Error')
                         return
                     }
                     else {
-                        let res = await axios.post(`${config.baseUrl}/order/checkout`, { userId, pickup_station, customer_address, product: products, city, country, zip, state });
-                        if (res?.data) {
-                            ToastAndroid.show('Order Placed!', ToastAndroid.SHORT);
-                            dispatch(clearCart());
-                            setShowSuccessModal(true);
+                        try {
+                            const orderPayload = { userId, pickup_station, customer_address, product: products, city, country, zip, state };
+                            console.log('Sending order payload:', JSON.stringify(orderPayload, null, 2));
+                            let orderRes = await axios.post(`${config.baseUrl}/order/checkout`, orderPayload);
+                            if (orderRes?.data) {
+                                console.log(orderRes?.data, 'Order Success')
+                                ToastAndroid.show('Order Placed!', ToastAndroid.SHORT);
+                                dispatch(clearCart());
+                                setShowSuccessModal(true);
+                            }
+                        } catch (error) {
+                            console.log('Order Error Details:', {
+                                message: error?.message,
+                                status: error?.response?.status,
+                                statusText: error?.response?.statusText,
+                                data: error?.response?.data,
+                                config: error?.config?.data
+                            });
+                            Alert.alert('Order Error', `Failed to place order: ${error?.response?.data?.message || error?.message || 'Please try again.'}`);
                         }
                     }
                 }
-
             }
         }
     };
@@ -133,7 +175,7 @@ const CheckoutScreen = () => {
                     <Text style={styles.sectionTitle}>Shipment</Text>
                     <Text style={styles.shipmentDetails}>Fulfilled by TUGM</Text>
                 </View>
-                <Text style={styles.deliveryDate}>Delivery Between 15 Jun and 17 Jun</Text>
+                <Text style={styles.deliveryDate}>{deliveryDateText}</Text>
                 {customer_address && <Text style={styles.shippingMethod}>{customer_address}</Text>}
             </View>
             {
@@ -247,7 +289,7 @@ const CheckoutScreen = () => {
                 {customer_address && (
                     <View style={styles.shippingDetails}>
                         <Text style={styles.shippingDetailLabel}>Delivery Between</Text>
-                        <Text style={styles.shippingDetailValue}>15 Sep and 17 Sep</Text>
+                        <Text style={styles.shippingDetailValue}> {shippingDateText}</Text>
                     </View>
                 )}
             </View>
@@ -275,6 +317,7 @@ const CheckoutScreen = () => {
                             value={customer_address}
                             onChangeText={(text) => setCustomer_address(text)}
                             placeholder="washington"
+                            placeholderTextColor="#ccc"
                             style={{ flex: 1, color: "#fff" }}
                         />
                     </View>
@@ -283,24 +326,28 @@ const CheckoutScreen = () => {
                             value={country}
                             onChangeText={(text) => setCountry(text)}
                             placeholder="Country"
+                            placeholderTextColor="#ccc"
                             style={styles.input}
                         />
                         <TextInput
                             value={city}
                             onChangeText={(text) => setCity(text)}
                             placeholder="City"
+                            placeholderTextColor="#ccc"
                             style={styles.input}
                         />
                         <TextInput
                             value={state}
                             onChangeText={(text) => setState(text)}
                             placeholder="State"
+                            placeholderTextColor="#ccc"
                             style={[styles.input, { flex: 1, color: "#fff" }]}
                         />
                         <TextInput
                             value={zip}
                             onChangeText={(text) => SetZip(text)}
                             placeholder="Zip"
+                            placeholderTextColor="#ccc"
                             style={[styles.input, { flex: 1, color: "#fff" }]}
                         />
                     </View>
@@ -338,6 +385,7 @@ const CheckoutScreen = () => {
                         <TextInput
                             value={pickup_station}
                             onChangeText={(text) => Setpickup_station(text)}
+                            placeholderTextColor="#ccc"
                             placeholder="Search for location"
                             style={{ flex: 1, color: "#fff" }}
                         />
@@ -375,13 +423,13 @@ const CheckoutScreen = () => {
                         {pickup_station && (
                             <View style={styles.shippingDetails}>
                                 <Text style={styles.shippingDetailLabel}>Pickup Station</Text>
-                                <Text style={styles.shippingDetailValue}>4517 Washington Ave. Man...</Text>
+                                <Text style={styles.shippingDetailValue}>{pickup_station}</Text>
                             </View>
                         )}
                         {customer_address && (
                             <View style={styles.shippingDetails}>
                                 <Text style={styles.shippingDetailLabel}>Delivery Between</Text>
-                                <Text style={styles.shippingDetailValue}>15 Sep and 17 Sep</Text>
+                                <Text style={styles.shippingDetailValue}>{shippingDateText}</Text>
                             </View>
                         )}
                     </View>

@@ -1,12 +1,14 @@
 import React, { useState } from 'react';
 import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import product_img from "../assets/product/main.png";
 
 const RatingScreen = () => {
     const navigation = useNavigation();
     const [rating, setRating] = useState(0);
+    const route = useRoute()
+    const { orderDetails } = route.params || {};
     const [review, setReview] = useState('');
     const [name, setName] = useState('');
 
@@ -36,15 +38,15 @@ const RatingScreen = () => {
                 </View>
 
                 <View style={styles.productCard}>
-                    <Image source={product_img} style={styles.productImage} />
+                    <Image source={{ uri: orderDetails?.productId?.images?.[0] }} style={styles.productImage} />
                     <View style={styles.productInfo}>
-                        <Text style={styles.productType}>Clothing</Text>
-                        <Text style={styles.productName}>Zip-up hoody</Text>
+                        <Text style={styles.productType}>{orderDetails?.productId?.categories?.join(", ")}</Text>
+                        <Text style={styles.productName}>{orderDetails?.productId?.title}</Text>
                         <Text style={styles.productColor}>Color - Yellow</Text>
                     </View>
                     <View style={styles.priceInfo}>
-                        <Text style={styles.priceItems}>1 Items</Text>
-                        <Text style={styles.priceText}>$30.00</Text>
+                        <Text style={styles.priceItems}>{orderDetails?.productId?.stock} Items</Text>
+                        <Text style={styles.priceText}>{orderDetails?.total}</Text>
                     </View>
                 </View>
 
@@ -107,7 +109,7 @@ const styles = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap:10,
+        gap: 10,
         paddingTop: 80,
         marginBottom: 30,
     },
@@ -215,7 +217,7 @@ const styles = StyleSheet.create({
         color: '#888',
         fontSize: 16,
         textAlign: 'center',
-        marginTop:10
+        marginTop: 10
     },
 });
 

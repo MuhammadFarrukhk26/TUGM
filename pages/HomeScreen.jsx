@@ -21,6 +21,7 @@ const HomeScreen = () => {
     const [activeCategory, setActiveCategory] = useState('');
     const [categories, setCategories] = useState([]);
     const [products, setProducts] = useState([]);
+    const [filteredProducts, setFilterProducts] = useState([])
     const [streams, setStreams] = useState([])
     const [uid, setUid] = useState("");
     const [profileData, setprofileData] = useState(null)
@@ -51,6 +52,7 @@ const HomeScreen = () => {
             setUid(userId)
             let res = await axios.get(`${config.baseUrl2}/stream/active`);
             if (res?.data) {
+                console.log('Auction list',res?.data?.data)
                 setStreams(res?.data?.data);
             }
         }
@@ -63,6 +65,7 @@ const HomeScreen = () => {
             let res = await axios.get(`${config.baseUrl}/product/all`);
             if (res?.data) {
                 setProducts(res?.data?.data);
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
             }
         }
         catch (error) {
@@ -93,8 +96,8 @@ const HomeScreen = () => {
     };
     const handleCategoryPress = (category) => {
         setActiveCategory(category);
-        // const filtered = products?.filter(product => product.categoryId.category === category);
-        // setFilterProducts(filtered);
+        const filtered = products?.filter(product => product?.categories?.includes(category));
+        setFilterProducts(filtered);
     };
     const updateViewers = async (storyId) => {
         try {
@@ -353,7 +356,7 @@ const HomeScreen = () => {
                 </ScrollView>
 
                 <View style={styles.productList}>
-                    {products?.map((product) => (
+                    {filteredProducts?.map((product) => (
                         <TouchableOpacity onPress={() => navigation.navigate("single_product", { productId: product._id })} key={product._id} style={styles.card}>
                             <TouchableOpacity style={styles.cartButton} onPress={() => handleAddToCard(product)}>
                                 <AntDesign name="plus" size={20} color="white" />
@@ -432,7 +435,7 @@ const HomeScreen = () => {
 
                     {/* Story Content */}
                     <TouchableOpacity style={{ flex: 1 }} onPress={nextMedia} activeOpacity={1}>
-                        {console.log(currentMedia?.includes('.mp4'))}
+                        {/* {console.log(currentMedia?.includes('.mp4'))} */}
                         {currentMedia?.includes('.mp4') ? (
                             // <Video controls={true} ref={videoRef} source={{ uri: currentMedia }} style={{ width, height }} resizeMode="cover" onEnd={nextMedia} autoplay />
                             <Video ref={videoRef} source={{ uri: currentMedia, cache: true }} style={{ width, height }} resizeMode="cover" controls={false} onLoadStart={() => console.log("Loading video...")} onLoad={() => console.log("Video Loaded!")} onError={(error) => console.log("Video Error:", error)} onEnd={nextMedia} />

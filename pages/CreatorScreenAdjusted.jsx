@@ -25,7 +25,7 @@ import io from "socket.io-client";
 const appId = config.appId;
 const localUid = 0;
 
-const CreatorStreamScreen = ({ route }) => {
+const CreatorStreamScreenAdjusted = ({ route }) => {
     const { streamId, isHost, coHost = false } = route.params;
     const socketRef = useRef(null);
     const agoraEngineRef = useRef(null);
@@ -54,7 +54,6 @@ const CreatorStreamScreen = ({ route }) => {
 
     const dispatch = useDispatch();
     const [amount, setAmount] = useState(0);
-    const [bidAmount, setBidAmount] = useState('');
     const [uId, setuId] = useState("")
     const [quantity, setQuantity] = useState(1)
     const [showShirts, setshowShirts] = useState(false)
@@ -209,6 +208,7 @@ const CreatorStreamScreen = ({ route }) => {
                 const created = new Date(info.createdAt).getTime();
                 const end = created + info.biddingEndTime * 1000;
                 setEndTime(end);
+                console.log(end)
                 fetchBiddings(info?._id);
             }
         } catch (error) {
@@ -387,20 +387,12 @@ const CreatorStreamScreen = ({ route }) => {
     const handleBid = async (quickBid = null) => {
         Keyboard.dismiss();
         setshowBid(false)
-        
-        // Check if timer has ended
-        if (timeLeft === "00:00") {
-            Alert.alert("Bidding Closed", "The bidding time has ended. No more bids are accepted.");
-            return;
-        }
-        
-        const finalBidAmount = quickBid || (bidAmount ? parseInt(bidAmount) : 0);
-        if (finalBidAmount <= currentBid) {
+        if (amount <= currentBid && !quickBid) {
             Alert.alert("Insufficient Amount", `Your bid must be higher than the current bid of $${currentBid}`);
             return;
         }
         try {
-            let paymentIntentRes = await axios.post(`${config.baseUrl2}/payment/create-intent`, { amount: finalBidAmount * 100, currency: "usd" });
+            let paymentIntentRes = await axios.post(`${config.baseUrl2}/payment/create-intent`, { amount: quickBid ? quickBid * 100 : amount * 100, currency: "usd" });
             console.log(paymentIntentRes,'paymentIntentRes')
             if (!paymentIntentRes?.data?.clientSecret) {
                 throw new Error("Failed to fetch payment intent");
@@ -420,24 +412,9 @@ const CreatorStreamScreen = ({ route }) => {
                     }
                     else {
                         let userId = await AsyncStorage.getItem('userId');
-                        await axios.post(`${config.baseUrl}/stream/bidding`, { streamId: streamInfo?._id, bidderId: userId, bidAmount: finalBidAmount });
-                        
-                        // Show notification for quickbid
-                        if (quickBid) {
-                            setShowBidNotifcation(true);
-                            setBidNotifcationData({
-                                bidderId: { username: data?.username },
-                                bidAmount: finalBidAmount
-                            });
-                            setTimeout(() => {
-                                setShowBidNotifcation(false);
-                                setBidNotifcationData(null);
-                            }, 3000);
-                        }
-                        
                         ToastAndroid.show('Bid Added!', ToastAndroid.SHORT);
-                        setBidAmount('');
-                        fetchBiddings(streamInfo?._id);
+                        setAmount(0);
+                        await axios.post(`${config.baseUrl}/stream/bidding`, { streamId: streamInfo?._id, bidderId: userId, bidAmount: quickBid ? quickBid : amount });
                     }
                 }
 
@@ -478,59 +455,59 @@ const CreatorStreamScreen = ({ route }) => {
     }
 
     // ✨ AUTO SHIPMENT CREATION FOR AUCTION WINNERS
-    const createShipmentForWinner = async (stream, winningBid) => {
-        try {
-            // Get bidder's information
-            let bidderInfo = winningBid.bidderId;
+    // const createShipmentForWinner = async (stream, winningBid) => {
+    //     try {
+    //         // Get bidder's information
+    //         let bidderInfo = winningBid.bidderId;
             
-            const shipmentData = {
-                streamId: stream._id,
-                bidderId: bidderInfo._id,
-                sellerId: stream.creatorId._id,
-                productId: stream.productId[0]?._id,
-                bidAmount: winningBid.bidAmount,
-                quantity: 1,
-                customer_address: bidderInfo.address || "Address to be confirmed",
-                city: bidderInfo.city || "City",
-                state: bidderInfo.state || "State",
-                country: bidderInfo.country || "Country",
-                zip: bidderInfo.zip || "00000",
-                total: winningBid.bidAmount,
-                status: "pending",
-            };
+    //         const shipmentData = {
+    //             streamId: stream._id,
+    //             bidderId: bidderInfo._id,
+    //             sellerId: stream.creatorId._id,
+    //             productId: stream.productId[0]?._id,
+    //             bidAmount: winningBid.bidAmount,
+    //             quantity: 1,
+    //             customer_address: bidderInfo.address || "Address to be confirmed",
+    //             city: bidderInfo.city || "City",
+    //             state: bidderInfo.state || "State",
+    //             country: bidderInfo.country || "Country",
+    //             zip: bidderInfo.zip || "00000",
+    //             total: winningBid.bidAmount,
+    //             status: "pending",
+    //         };
 
-            const res = await axios.post(`${config.baseUrl}/shipment/create`, shipmentData);
+    //         const res = await axios.post(`${config.baseUrl}/shipment/create`, shipmentData);
             
-            if (res?.data?.data) {
-                console.log("Shipment created:", res.data.data._id);
-                ToastAndroid.show('Shipment Created for Winner!', ToastAndroid.SHORT);
+    //         if (res?.data?.data) {
+    //             console.log("Shipment created:", res.data.data._id);
+    //             ToastAndroid.show('Shipment Created for Winner!', ToastAndroid.SHORT);
                 
-                // Send notification to winner
-                // await notifyWinner(bidderInfo._id, stream._id, winningBid.bidAmount);
+    //             // Send notification to winner
+    //             // await notifyWinner(bidderInfo._id, stream._id, winningBid.bidAmount);
                 
-                // return res.data.data;
-            }
-        } catch (error) {
-            console.error('Shipment creation error:', error);
-            ToastAndroid.show('Shipment creation failed', ToastAndroid.SHORT);
-        }
-    };
+    //             // return res.data.data;
+    //         }
+    //     } catch (error) {
+    //         console.error('Shipment creation error:', error);
+    //         ToastAndroid.show('Shipment creation failed', ToastAndroid.SHORT);
+    //     }
+    // };
 
-    const notifyWinner = async (winnerId, streamId, bidAmount) => {
-        try {
-            await axios.post(`${config.baseUrl}/notification/invite`, {
-                userId: winnerId,
-                type: 'auction_win',
-                title: 'You Won an Auction! 🎉',
-                message: `Congratulations! You won the auction with a bid of $${bidAmount}. Your shipment is being prepared.`,
-                streamId: streamId,
-                read: false,
-            });
-            console.log("✅ Winner notification sent");
-        } catch (error) {
-            console.error('Notification error:', error);
-        }
-    };
+    // const notifyWinner = async (winnerId, streamId, bidAmount) => {
+    //     try {
+    //         await axios.post(`${config.baseUrl}/notification/invite`, {
+    //             userId: winnerId,
+    //             type: 'auction_win',
+    //             title: 'You Won an Auction! 🎉',
+    //             message: `Congratulations! You won the auction with a bid of $${bidAmount}. Your shipment is being prepared.`,
+    //             streamId: streamId,
+    //             read: false,
+    //         });
+    //         console.log("✅ Winner notification sent");
+    //     } catch (error) {
+    //         console.error('Notification error:', error);
+    //     }
+    // };
 
     useEffect(() => {
         const init = async () => {
@@ -563,47 +540,86 @@ const CreatorStreamScreen = ({ route }) => {
         };
     }, []);
 
-    // Reset bid amount when modal opens
-    useEffect(() => {
-        if (showBid) {
-            setBidAmount('');
-        }
-    }, [showBid]);
+    // 🏁 BIDDING TIMER WITH AUTO-END
+    // useEffect(() => {
+    //     if (!endTime) return;
 
-    // BIDDING TIMER 
-    useEffect(() => {
-        if (!endTime) return;
+    //     const interval = setInterval(async () => {
+    //         const now = Date.now();
+    //         const diff = endTime - now;
 
-        const interval = setInterval(() => {
-            const now = Date.now();
-            const diff = endTime - now;
+    //         // ⏰ UPDATE COUNTDOWN DISPLAY
+    //         if (diff > 0) {
+    //             const minutes = Math.floor(diff / 1000 / 60);
+    //             const seconds = Math.floor((diff / 1000) % 60);
 
-            if (diff <= 0) {
-                setTimeLeft("00:00");
-                clearInterval(interval);
+    //             setTimeLeft(
+    //                 `${minutes.toString().padStart(2, "0")}:${seconds
+    //                     .toString()
+    //                     .padStart(2, "0")}`
+    //             );
+
+    //             // 🔔 WARN WHEN 30 SECONDS LEFT (for sellers to prepare)
+    //             if (diff <= 30000 && diff > 29000) {
+    //                 ToastAndroid.show('⏰ Auction ending in 30 seconds!', ToastAndroid.LONG);
+    //             }
+    //         }
+    //         // ✅ AUTO-END WHEN TIME EXPIRES
+    //         else if (diff <= 0) {
+    //             setTimeLeft("00:00");
+    //             clearInterval(interval);
                 
-                if (biddings.length > 0) {
-                    setBiddingWinner(true);
+    //             console.log("🏁 AUCTION AUTO-ENDED - Timer Expired");
+                
+    //             // 🎊 IF BIDS EXIST, PROCESS WINNER
+    //             if (biddings && biddings.length > 0) {
+    //                 try {
+    //                     const winningBid = biddings[0]; // Highest bid
+    //                     console.log("🏆 Winner Found:", winningBid.bidderId?.username, "Amount: $" + winningBid.bidAmount);
+                        
+    //                     // SHOW WINNER MODAL
+    //                     setBiddingWinner(true);
+    //                     ToastAndroid.show('🎉 Auction Complete! Winner Announced!', ToastAndroid.LONG);
+                        
+    //                     // ✨ AUTO-CREATE SHIPMENT FOR AUCTION WINNER
+    //                     // await createShipmentForWinner(streamInfo, winningBid);
+                        
+    //                     // 📢 NOTIFY WINNER
+    //                     // await notifyWinner(winningBid.bidderId._id, streamInfo._id, winningBid.bidAmount);
+                        
+    //                     // ⏱️ AUTO-END STREAM AFTER 5 SECONDS IF HOST
+    //                     if (isHost && !coHost) {
+    //                         setTimeout(async () => {
+    //                             console.log("⏹️ AUTO-ENDING STREAM...");
+    //                             await handleEndStream();
+    //                         }, 5000);
+    //                     }
+    //                 } catch (error) {
+    //                     console.error("❌ Error processing winner:", error);
+    //                     ToastAndroid.show('Auction ended. Processing winner...', ToastAndroid.SHORT);
+    //                 }
+    //             } 
+    //             // ❌ NO BIDS - AUCTION FAILED
+    //             else {
+    //                 console.log("❌ NO BIDS RECEIVED - Auction Failed");
+    //                 ToastAndroid.show('⚠️ No bids received. Auction cancelled.', ToastAndroid.LONG);
+    //                 setBiddingWinner(false);
                     
-                    // ✨ AUTO-CREATE SHIPMENT FOR AUCTION WINNER
-                    const winningBid = biddings[0]; // Highest bid
-                    // createShipmentForWinner(streamInfo, winningBid);
-                }
-                return;
-            }
+    //                 // AUTO-END STREAM AFTER 3 SECONDS IF HOST
+    //                 if (isHost && !coHost) {
+    //                     setTimeout(async () => {
+    //                         console.log("⏹️ AUTO-ENDING STREAM (No Bids)...");
+    //                         await handleEndStream();
+    //                     }, 3000);
+    //                 }
+    //             }
+                
+    //             return;
+    //         }
+    //     }, 1000);
 
-            const minutes = Math.floor(diff / 1000 / 60);
-            const seconds = Math.floor((diff / 1000) % 60);
-
-            setTimeLeft(
-                `${minutes.toString().padStart(2, "0")}:${seconds
-                    .toString()
-                    .padStart(2, "0")}`
-            );
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [endTime, biddings, streamInfo]);
+    //     return () => clearInterval(interval);
+    // }, [endTime, biddings, streamInfo]);
 
 
 
@@ -774,7 +790,7 @@ const CreatorStreamScreen = ({ route }) => {
                 }
 
                 {/* DISABLE THAT  */}
-                <View style={{ position: 'absolute', bottom: isHost ? 230 : 250, right: 20, gap: 15, alignItems: "center" }}>
+                <View style={{ position: 'absolute', bottom: 230, right: 20, gap: 15, alignItems: "center" }}>
 
                     {
                         isHost && (
@@ -819,14 +835,17 @@ const CreatorStreamScreen = ({ route }) => {
                     <View>
                         <Text style={{ color: timeLeft && Number(timeLeft.split(":")[0]) * 60 + Number(timeLeft.split(":")[1]) <= 10 ? "red" : "white", fontSize: 14, marginRight: 5 }}>{timeLeft}</Text>
                     </View>
-                    <TouchableOpacity onPress={() => handleBid(currentBid + 2)} style={{ backgroundColor: "orange", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
+                    <TouchableOpacity onPress={() => {
+                        setAmount(currentBid + 2)
+                        handleBid(currentBid + 2)
+                    }} style={{ backgroundColor: "orange", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
                         <Text style={{ color: "white", fontSize: 14 }}>Quick Bid</Text>
                     </TouchableOpacity>
                 </View>
 
                 {
                     showBidNotifcation && (
-                        <View style={{ padding: 10, backgroundColor: "#D9D9D961", borderRadius: 20, marginVertical: 10, position: "absolute", top: "30%", left: "15%", }}>
+                        <View style={{ padding: 10, backgroundColor: "#D9D9D961", borderRadius: 20, marginVertical: 10, position: "absolute", top: "30%", left: "30%" }}>
                             <Text style={{ color: "#fff", fontWeight: "800" }}> {bidNotifcationData?.bidderId?.username} added a ${bidNotifcationData?.bidAmount} Bid</Text>
                         </View>
                     )
@@ -1080,12 +1099,12 @@ const CreatorStreamScreen = ({ route }) => {
                             <Text style={{ color: "#fff" }}>$ Add Bid</Text>
                         </View>
                         <Text style={{ textAlign: "center", marginVertical: 10, color: "#c4c4c4" }}>Current Bid : ${currentBid}</Text>
-                        <TextInput keyboardType="numeric" value={bidAmount} onChangeText={(text) => setBidAmount(text)} placeholderTextColor={"#fff"} style={{ flex: 1, backgroundColor: "#D9D9D91F", height: 50, paddingHorizontal: 20, borderWidth: 1, borderColor: "#747474", marginLeft: 10, borderRadius: 10, color: "white" }} placeholder='Your Bid' />
+                        <TextInput keyboardType="numeric" value={amount.toString()} onChangeText={(text) => setAmount(text ? parseInt(text) : '')} placeholderTextColor={"#fff"} style={{ flex: 1, backgroundColor: "#D9D9D91F", height: 50, paddingHorizontal: 20, borderWidth: 1, borderColor: "#747474", marginLeft: 10, borderRadius: 10, color: "white" }} placeholder='Your Bid' />
                         <View style={{ flexDirection: "row", marginTop: 20 }}>
                             <TouchableOpacity onPress={() => setshowBid(false)} style={styles.cancelButton}>
                                 <Text style={styles.cancelText}>Cancel</Text>
                             </TouchableOpacity>
-                            <TouchableOpacity onPress={() => handleBid()} style={styles.startAuctionButton}>
+                            <TouchableOpacity onPress={handleBid} style={styles.startAuctionButton}>
                                 <Text style={styles.startAuctionText}>Bid</Text>
                             </TouchableOpacity>
                         </View>
@@ -1115,7 +1134,7 @@ const CreatorStreamScreen = ({ route }) => {
                 }
 
 
-                <View style={{ position: "absolute", bottom: keyboardOpen ? 280 : 40, left: 10, paddingVertical: 10, maxHeight: "50%" }}>
+                <View style={{ position: "absolute", bottom: keyboardOpen ? 200 : 40, left: 10, paddingVertical: 10, maxHeight: "50%" }}>
 
                     {/* COMMENTS  */}
                     {
@@ -1417,4 +1436,4 @@ const styles = StyleSheet.create({
     }
 });
 
-export default CreatorStreamScreen;
+export default CreatorStreamScreenAdjusted;

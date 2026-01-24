@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Switch, Modal, Image, TextInput } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Switch, Modal, Image, TextInput, ToastAndroid, Alert } from 'react-native';
 import BottomNavBar from '../components/BottomNav';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import AntDesign from 'react-native-vector-icons/AntDesign';
@@ -14,8 +14,14 @@ const SellerProductsScreen = () => {
     const [activeCategory, setActiveCategory] = useState('');
     const [categories, setCategories] = useState([])
     const [products, setProducts] = useState([])
-    const handleCategoryPress = (category) => { setActiveCategory(category); };
-
+    const [filteredProducts, setFilterProducts] = useState([])
+    const [selectedProduct, setSelectedProduct] = useState(null);
+    const [showDeleteModal, setShowDeleteModal] = useState(false);
+    const handleCategoryPress = (category) => {
+        setActiveCategory(category);
+        const filtered = products?.filter(product => product?.categories?.includes(category));
+        setFilterProducts(filtered);
+    };
     const fetchCategory = async () => {
         try {
             let res = await axios.get(`${config.baseUrl}/category/all`)
@@ -34,6 +40,7 @@ const SellerProductsScreen = () => {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
                 setProducts(res?.data?.data);
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
             }
         }
         catch (error) {
@@ -44,6 +51,23 @@ const SellerProductsScreen = () => {
         fetchCategory();
         fetchProduct()
     }, []);
+
+    const handleUpdateProduct = (product) => {
+        navigation.navigate("CreateProduct", { product: product, isEdit: true });
+    };
+
+    const handleDeleteProduct = async (productId) => {
+        try {
+            await axios.patch(`${config.baseUrl}/product/del/${productId}`, { isDeleted: true });
+            setShowDeleteModal(false);
+            setSelectedProduct(null);
+            ToastAndroid.show('Product deleted successfully!', ToastAndroid.SHORT);
+            fetchProduct();
+        } catch (error) {
+            console.log('Delete error:', error);
+            Alert.alert('Error', 'Failed to delete product. Please try again.');
+        }
+    };
 
     // console.log(products, 'productss')
     return (
@@ -63,7 +87,7 @@ const SellerProductsScreen = () => {
                 </View>
 
                 <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[styles.categoryContainer, { marginBottom: 20 }]}>
-                    {categories.map((category) => (
+                    {categories?.map((category) => (
                         <TouchableOpacity key={category?._id} style={[styles.button, activeCategory === category?.category && styles.activeButton,]} onPress={() => handleCategoryPress(category?.category)}>
                             <Text style={[styles.buttonText, activeCategory !== category?.category && styles.inActiveButtonText]}>{category?.category}</Text>
                         </TouchableOpacity>
@@ -72,7 +96,7 @@ const SellerProductsScreen = () => {
 
                 <View>
                     {
-                        products?.map((i) => (
+                        filteredProducts?.map((i) => (
                             <TouchableOpacity onPress={() => navigation.navigate("single_product", { productId: i._id })} key={i?._id} style={{ padding: 10, backgroundColor: '#1A1A1A', borderRadius: 10, marginVertical: 10, }}>
 
                                 <View style={{ flexDirection: "row", alignItems: "flex-start", borderBottomWidth: 2, borderBottomColor: "#494848", paddingBottom: 20 }}>
@@ -92,7 +116,10 @@ const SellerProductsScreen = () => {
                                         <Text style={{ color: "#fff", fontSize: 16, marginTop: 3 }}>${i?.price}</Text>
                                     </View>
 
-                                    <TouchableOpacity style={[styles.cancelButton, { backgroundColor: "#fff" }]}>
+                                    <TouchableOpacity onPress={() => {
+                                        setSelectedProduct(i);
+                                        setShowDeleteModal(true);
+                                    }} style={[styles.cancelButton, { backgroundColor: "#fff" }]}>
                                         <Text style={[styles.cancelText, { color: "#000" }]}>Update product</Text>
                                     </TouchableOpacity>
                                 </View>
@@ -105,10 +132,63 @@ const SellerProductsScreen = () => {
 
             </ScrollView>
 
+            {/* Delete/Update Modal */}
+            <Modal
+                transparent={true}
+                visible={showDeleteModal}
+                animationType="slide"
+                onRequestClose={() => setShowDeleteModal(false)}
+            >
+                <View style={styles.modalOverlay}>
+                    <View style={styles.modalContent2}>
+                        <Text style={styles.modalTitle}>Product Options</Text>
+                        <Text style={styles.modalSubtitle}>{selectedProduct?.name}</Text>
 
+                        <TouchableOpacity
+                            onPress={() => {
+                                handleUpdateProduct(selectedProduct);
+                                setShowDeleteModal(false);
+                            }}
+                            style={{
+                                backgroundColor: "#FFA500",
+                                borderRadius: 10,
+                                padding: 15,
+                                marginBottom: 10,
+                                alignItems: "center"
+                            }}
+                        >
+                            <Text style={{ color: "#fff", fontWeight: "bold" }}>Edit Product</Text>
+                        </TouchableOpacity>
 
+                        <TouchableOpacity
+                            onPress={() => {
+                                handleDeleteProduct(selectedProduct?._id);
+                            }}
+                            style={{
+                                backgroundColor: "#FF3729",
+                                borderRadius: 10,
+                                padding: 15,
+                                marginBottom: 10,
+                                alignItems: "center"
+                            }}
+                        >
+                            <Text style={{ color: "#fff", fontWeight: "bold" }}>Delete Product</Text>
+                        </TouchableOpacity>
 
-            <BottomNavBar />
+                        <TouchableOpacity
+                            onPress={() => setShowDeleteModal(false)}
+                            style={{
+                                backgroundColor: "#1A1A1A",
+                                borderRadius: 10,
+                                padding: 15,
+                                alignItems: "center"
+                            }}
+                        >
+                            <Text style={{ color: "#fff" }}>Cancel</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+            </Modal>
         </View>
     );
 };

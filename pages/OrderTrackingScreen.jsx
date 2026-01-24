@@ -1,15 +1,24 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image } from 'react-native';
-import { useNavigation } from '@react-navigation/core';
+import { useNavigation, useRoute } from '@react-navigation/core';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import product_img from "../assets/product/main.png";
 import truck_img from "../assets/truck.png";
+import axios from 'axios';
+import config from '../config';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const OrderTrackingScreen = () => {
     const navigation = useNavigation();
+    const [orderDetails, setOrderDetails] = useState({});
+    const [loading, setLoading] = useState(true);
+    const route = useRoute();
+    // const [product, setProduct] = useState({});
+    const [selectedImage, setSelectedImage] = useState(null);
     const [isOrderSummaryCollapsed, setOrderSummaryCollapsed] = useState(false);
+    const [orders, setOrders] = useState([]);
     const [isPackageHistoryVisible, setPackageHistoryVisible] = useState(false);
-
+    const { orderId } = route.params;
     const toggleOrderSummary = () => {
         setOrderSummaryCollapsed(!isOrderSummaryCollapsed);
     };
@@ -17,7 +26,41 @@ const OrderTrackingScreen = () => {
     const togglePackageHistory = () => {
         setPackageHistoryVisible(!isPackageHistoryVisible);
     };
+    const fetchProduct = async () => {
+        let userId = await AsyncStorage.getItem('userId');
+        try {
+            let res = await axios.get(`${config.baseUrl}/order/user/${userId}`)
+            if (res?.data) {
+                console.log("orders", res?.data?.data)
+                setOrders(res?.data?.data);
+                setOrderDetails(res?.data?.data.find(order => order._id === orderId));
+                setSelectedImage(res?.data?.data.find(order => order._id === orderId)?.productId?.images[0]);
+            }
+        }
+        catch (error) {
+            console.log(error)
+        }
+    }
+    const markAsDelivered = async (orderId) => {
 
+        try {
+            console.log(orderId, 'orderId');
+            const res = await axios.get(`${config.baseUrl}/order/delivered/${orderId}`);
+            console.log(orderId, 'orderId');
+            console.log(res.data.data, 'res.data.data');
+            setOrderDetails(res.data.data);
+            setSelectedImage(res.data.data?.images[0]);
+            console.log(res.data.data, 'res.data.data');
+        } catch (err) {
+            console.log("Error fetching product:", err);
+        } finally {
+            setLoading(false);
+        }
+    };
+    useEffect(() => {
+        fetchProduct()
+        // markAsDelivered(orderId);
+    }, [orderId])
     return (
         <View style={styles.container}>
             <View style={styles.header}>
@@ -28,24 +71,26 @@ const OrderTrackingScreen = () => {
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContent}>
                 <View style={styles.statusContainer}>
-                    <Image source={truck_img} style={styles.truckImage} />
+                    {orderDetails?.status === 'delivered' ? <View style={styles.successIcon}>
+                        <Ionicons name="checkmark" size={30} color="black" />
+                    </View> : <Image source={truck_img} style={styles.truckImage} />}
                     <Text style={styles.statusTitle}>Order Status</Text>
-                    <Text style={styles.statusSubtitle}>Your package is on the way</Text>
+                    <Text style={styles.statusSubtitle}>{orderDetails?.status === 'delivered' ? 'Your package has been delivered' : 'Your package is on the way'}</Text>
                 </View>
-
+                {/* {orderDetails?.productId */}
                 <View style={styles.productCard}>
-                    <Image source={product_img} style={styles.productImage} />
+                    <Image source={{ uri: selectedImage }} style={styles.productImage} />
                     <View style={styles.productInfo}>
-                        <Text style={styles.productType}>Clothing</Text>
-                        <Text style={styles.productName}>Zip-up hoody</Text>
+                        <Text style={styles.productType}>{orderDetails?.productId?.categories?.join(", ")}</Text>
+                        <Text style={styles.productName}>{orderDetails?.productId?.title}</Text>
                         <Text style={styles.productColor}>Color - Yellow</Text>
                     </View>
                     <View style={styles.priceInfo}>
-                        <Text style={styles.priceItems}>1 Items</Text>
-                        <Text style={styles.priceText}>$30.00</Text>
+                        <Text style={styles.priceItems}>{orderDetails?.productId?.stock} Items</Text>
+                        <Text style={styles.priceText}>{orderDetails?.total}</Text>
                     </View>
                 </View>
-
+                {/* } */}
                 <TouchableOpacity onPress={toggleOrderSummary} style={styles.collapsibleHeader}>
                     <Text style={styles.collapsibleTitle}>Order Summary</Text>
                     <Ionicons name={isOrderSummaryCollapsed ? "chevron-up-outline" : "chevron-down-outline"} size={24} color="white" />
@@ -54,19 +99,19 @@ const OrderTrackingScreen = () => {
                     <View style={styles.summaryContent}>
                         <View style={styles.summaryItem}>
                             <Text style={styles.summaryLabel}>Order ID</Text>
-                            <Text style={styles.summaryValue}>123456789101</Text>
+                            <Text style={styles.summaryValue}>{orderDetails?._id}</Text>
                         </View>
                         <View style={styles.summaryItem}>
                             <Text style={styles.summaryLabel}>Shipping Address</Text>
-                            <Text style={styles.summaryValue}>6391 Elgin St. Celina, Del... </Text>
+                            <Text style={styles.summaryValue}>{orderDetails?.customer_address}</Text>
                         </View>
                         <View style={styles.summaryItem}>
                             <Text style={styles.summaryLabel}>Tracking ID</Text>
-                            <Text style={styles.summaryValue}>123456789101</Text>
+                            <Text style={styles.summaryValue}>{orderDetails?._id}</Text>
                         </View>
                         <View style={styles.summaryItem}>
                             <Text style={styles.summaryLabel}>Delivery Between</Text>
-                            <Text style={styles.summaryValue}>15 Jun and 17 Jun</Text>
+                            <Text style={styles.summaryValue}>{orderDetails?.createdAt}</Text>
                         </View>
                     </View>
                 )}
@@ -76,15 +121,15 @@ const OrderTrackingScreen = () => {
                     <Ionicons name="chevron-forward-outline" size={24} color="white" />
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={()=>navigation.navigate("order_review")} style={styles.trackOrderButton}>
-                    <Text style={styles.trackOrderButtonText}>Track order</Text>
+                <TouchableOpacity onPress={() => navigation.navigate("order_review", { orderDetails: orderDetails })} style={styles.trackOrderButton}>
+                    <Text style={styles.trackOrderButtonText}>{orderDetails?.status === "ongoing" ? "Track order" : "Review Order"}</Text>
                 </TouchableOpacity>
-                <TouchableOpacity style={styles.cancelOrderButton}>
+                {orderDetails?.status === "ongoing" && <TouchableOpacity style={styles.cancelOrderButton}>
                     <Text style={styles.cancelOrderButtonText}>Cancel Order</Text>
-                </TouchableOpacity>
+                </TouchableOpacity>}
             </ScrollView>
 
-            <TouchableOpacity onPress={togglePackageHistory}  style={[styles.packageHistoryModal, isPackageHistoryVisible && styles.modalVisible]}>
+            <TouchableOpacity onPress={togglePackageHistory} style={[styles.packageHistoryModal, isPackageHistoryVisible && styles.modalVisible]}>
                 <TouchableOpacity style={styles.modalHandle} />
                 <Text style={styles.modalTitle}>Package History</Text>
                 <View style={styles.historyTimeline}>
@@ -164,7 +209,7 @@ const styles = StyleSheet.create({
         width: 30,
     },
     closeButton: {
-        
+
     },
     scrollViewContent: {
         paddingHorizontal: 20,
@@ -345,6 +390,15 @@ const styles = StyleSheet.create({
     historyDate: {
         color: '#888',
         fontSize: 12,
+    },
+    successIcon: {
+        backgroundColor: '#34C759',
+        borderRadius: 50,
+        width: 57.75,
+        height: 57.75,
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
     },
 });
 
