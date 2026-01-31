@@ -3,6 +3,8 @@ import { View, StyleSheet, Text, TouchableOpacity, Image, TextInput, KeyboardAvo
 import { useNavigation, useRoute } from '@react-navigation/core';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import product_img from "../assets/product/main.png";
+import axios from 'axios';
+import config from '../config';
 
 const RatingScreen = () => {
     const navigation = useNavigation();
@@ -16,11 +18,46 @@ const RatingScreen = () => {
         setRating(star);
     };
 
-    const handleSubmit = () => {
+    const handleSubmit = async () => {
         // Handle submission logic here, e.g., send data to an API
         console.log('Submitted Review:', { rating, review, name });
+        if (!rating) {
+            alert("Please select rating");
+            return;
+        }
+
+        if (!review.trim()) {
+            alert("Please write review");
+            return;
+        }
+
+        const productId = orderDetails?.productId?._id;
+
+        const payload = {
+            userId: orderDetails?.userId,
+            orderId: orderDetails?._id,
+            comment: review,
+            name: name,
+            rating: rating
+
+        };
+        console.log("Submitting review with payload:", payload);
+        try {
+            const res = await axios.post(`${config.baseUrl}/product/review/${productId}`, payload);
+
+            console.log("Review added:", res.data);
+            alert("Review submitted successfully");
+            navigation.goBack();
+
+        } catch (error) {
+            console.error(
+                "Add review error:",
+                error?.response?.data || error.message
+            );
+            alert("Failed to submit review");
+        }
         // After submission, you might want to navigate back or show a success message
-        navigation.goBack();
+
     };
 
     return (

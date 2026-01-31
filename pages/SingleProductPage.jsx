@@ -15,14 +15,28 @@ const SingleProductPage = () => {
     const [product, setProduct] = useState(null);
     const [loading, setLoading] = useState(true);
     const [selectedImage, setSelectedImage] = useState(null);
+    const renderStars = (rating, size = 16) => {
+        const fullStars = Math.floor(rating);
+        const halfStar = rating % 1 !== 0;
 
+        return (
+            <>
+                {[...Array(fullStars)].map((_, i) => (
+                    <Ionicons key={`full-${i}`} name="star" size={size} color="#FFD700" />
+                ))}
+                {halfStar && (
+                    <Ionicons name="star-half-outline" size={size} color="#FFD700" />
+                )}
+            </>
+        );
+    };
     useEffect(() => {
         const fetchProduct = async () => {
             try {
                 const res = await axios.get(`${config.baseUrl}/product/single/${productId}`);
                 setProduct(res.data.data);
-                setSelectedImage(res.data.data?.images[0]); 
-                console.log(res.data.data,'res.data.data');
+                setSelectedImage(res.data.data?.images[0]);
+                console.log(res.data.data, 'res.data.data');
             } catch (err) {
                 console.log("Error fetching product:", err);
             } finally {
@@ -71,12 +85,8 @@ const SingleProductPage = () => {
                 </View>
 
                 <View style={styles.reviewsContainer}>
-                    <Ionicons name="star" size={16} color="#FFD700" />
-                    <Ionicons name="star" size={16} color="#FFD700" />
-                    <Ionicons name="star" size={16} color="#FFD700" />
-                    <Ionicons name="star" size={16} color="#FFD700" />
-                    <Ionicons name="star-half-outline" size={16} color="#FFD700" />
-                    <Text style={styles.reviewText}>(140 verified reviews)</Text>
+                    {renderStars(product?.averageRating || 0)}
+                    <Text style={{ color: '#fff' }}> ({product?.reviews?.length || 0} {product?.reviews?.length > 1 ? 'verified reviews' : 'verified review'})</Text>
                 </View>
             </View>
 
@@ -127,34 +137,67 @@ const SingleProductPage = () => {
 
             <View style={[styles.section, { marginBottom: 150 }]}>
                 <View style={styles.reviewsHeader}>
-                    <Text style={styles.sectionTitle}>Reviews (3)</Text>
+                    <Text style={styles.sectionTitle}>Reviews ({product?.reviews?.length || 0})</Text>
                     <Pressable>
                         <Text style={styles.moreReviewsText}>More Reviews</Text>
                     </Pressable>
                 </View>
                 {
-                    [1, 2, 3, 4].map((i) => (
-                        <Pressable onPress={() => { navigation.navigate("profile_details", { userId: product?.userId }) }}key={i} style={styles.reviewCard}>
-                            <Image source={review} style={styles.reviewerImage} />
-                            <View style={styles.reviewContent}>
-                                <View style={styles.reviewerInfo}>
-                                    <Text style={styles.reviewerName}>r_nstal_user</Text>
-                                    <View style={styles.reviewRating}>
-                                        <Ionicons name="star" size={12} color="#FFD700" />
-                                        <Ionicons name="star" size={12} color="#FFD700" />
-                                        <Ionicons name="star" size={12} color="#FFD700" />
-                                        <Ionicons name="star" size={12} color="#FFD700" />
-                                        <Ionicons name="star-half-outline" size={12} color="#FFD700" />
-                                    </View>
-                                </View>
-                                <Text style={styles.reviewDate}>20 July 2024</Text>
-                                <Text style={styles.reviewTextContent}>
-                                    “I've delivered the best quality clothes and I'm very happy with it.”
-                                </Text>
-                            </View>
-                        </Pressable>
-                    ))
+                    // [1, 2, 3, 4].map((i) => (
+                    //     <Pressable onPress={() => { navigation.navigate("profile_details", { userId: product?.userId }) }} key={i} style={styles.reviewCard}>
+                    //         <Image source={review} style={styles.reviewerImage} />
+                    //         <View style={styles.reviewContent}>
+                    //             <View style={styles.reviewerInfo}>
+                    //                 <Text style={styles.reviewerName}>r_nstal_user</Text>
+                    //                 <View style={styles.reviewRating}>
+                    //                     <Ionicons name="star" size={12} color="#FFD700" />
+                    //                     <Ionicons name="star" size={12} color="#FFD700" />
+                    //                     <Ionicons name="star" size={12} color="#FFD700" />
+                    //                     <Ionicons name="star" size={12} color="#FFD700" />
+                    //                     <Ionicons name="star-half-outline" size={12} color="#FFD700" />
+                    //                 </View>
+                    //             </View>
+                    //             <Text style={styles.reviewDate}>20 July 2024</Text>
+                    //             <Text style={styles.reviewTextContent}>
+                    //                 “I've delivered the best quality clothes and I'm very happy with it.”
+                    //             </Text>
+                    //         </View>
+                    //     </Pressable>
+                    // ))
                 }
+                {product?.reviews?.map((review) => (
+                    <Pressable
+                        key={review._id}
+                        onPress={() =>
+                            navigation.navigate("profile_details", {
+                                userId: review.userId,
+                            })
+                        }
+                        style={styles.reviewCard}
+                    >
+                        <Image source={review} style={styles.reviewerImage} />
+
+                        <View style={styles.reviewContent}>
+                            <View style={styles.reviewerInfo}>
+                                <Text style={styles.reviewerName}>
+                                    {review.userId?.slice(0, 8) || "User"}
+                                </Text>
+
+                                <View style={styles.reviewRating}>
+                                    {renderStars(review.rating, 12)}
+                                </View>
+                            </View>
+
+                            <Text style={styles.reviewDate}>
+                                {new Date(review.createdAt).toDateString()}
+                            </Text>
+
+                            <Text style={styles.reviewTextContent}>
+                                “{review.comment}”
+                            </Text>
+                        </View>
+                    </Pressable>
+                ))}
             </View>
         </ScrollView>
     )

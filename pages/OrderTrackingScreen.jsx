@@ -121,9 +121,9 @@ const OrderTrackingScreen = () => {
                     <Ionicons name="chevron-forward-outline" size={24} color="white" />
                 </TouchableOpacity>
 
-                <TouchableOpacity onPress={() => navigation.navigate("order_review", { orderDetails: orderDetails })} style={styles.trackOrderButton}>
-                    <Text style={styles.trackOrderButtonText}>{orderDetails?.status === "ongoing" ? "Track order" : "Review Order"}</Text>
-                </TouchableOpacity>
+                {orderDetails?.status === "delivered" && <TouchableOpacity onPress={() => navigation.navigate("order_review", { orderDetails: orderDetails })} style={styles.trackOrderButton}>
+                    <Text style={styles.trackOrderButtonText}> Review Order</Text>
+                </TouchableOpacity>}
                 {orderDetails?.status === "ongoing" && <TouchableOpacity style={styles.cancelOrderButton}>
                     <Text style={styles.cancelOrderButtonText}>Cancel Order</Text>
                 </TouchableOpacity>}

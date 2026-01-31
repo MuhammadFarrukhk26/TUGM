@@ -99,6 +99,7 @@ const AuctionListingScreen = () => {
             let res = await axios.get(`${config.baseUrl}/stream/active`);
             if (res?.data) {
                 setStreams(res?.data?.data);
+                console.log(res?.data?.data)
             }
         }
         catch (error) {

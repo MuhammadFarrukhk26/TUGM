@@ -469,6 +469,7 @@ const CreatorStreamScreen = ({ route }) => {
             let biddingEndTime = minutes * 60 + seconds;
             let res = await axios.post(`${config.baseUrl2}/stream/bidding/timer`, { streamId: streamInfo?._id, biddingEndTime });
             if (res?.data?.data) {
+                console.log(res?.data?.data, 'timer added')
                 ToastAndroid.show('Timer Added!', ToastAndroid.SHORT);
                 fetchStreamInfo();
             }
@@ -502,7 +503,7 @@ const CreatorStreamScreen = ({ route }) => {
             const res = await axios.post(`${config.baseUrl}/shipment/create`, shipmentData);
             
             if (res?.data?.data) {
-                console.log("Shipment created:", res.data.data._id);
+                console.log("Shipment created:", res.data);
                 ToastAndroid.show('Shipment Created for Winner!', ToastAndroid.SHORT);
                 
                 // Send notification to winner
@@ -587,7 +588,8 @@ const CreatorStreamScreen = ({ route }) => {
                     
                     // ✨ AUTO-CREATE SHIPMENT FOR AUCTION WINNER
                     const winningBid = biddings[0]; // Highest bid
-                    // createShipmentForWinner(streamInfo, winningBid);
+                    console.log('Winning Bid:', winningBid);
+                    //  createShipmentForWinner(streamInfo, winningBid);
                 }
                 return;
             }

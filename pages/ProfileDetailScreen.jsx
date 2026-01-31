@@ -38,8 +38,9 @@ const ProfileDetailScreen = ({ route }) => {
     const fetchProducts = async () => {
         try {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`);
-            if (res?.data) {
-                setProducts(res?.data?.data);
+            if (res.data) {
+                setProducts(res.data.data);
+                console.log(res)
             }
         } catch (error) {
             console.log("Error fetching products:", error);
@@ -123,7 +124,7 @@ const ProfileDetailScreen = ({ route }) => {
         </View>
     );
 
-    console.log(profileData,'profileData?.followedBy')
+    console.log(profileData, 'profileData?.followedBy')
 
     const renderProfileSection = () => (
         <View style={styles.profileSection}>
@@ -188,7 +189,7 @@ const ProfileDetailScreen = ({ route }) => {
                 <View style={styles.productRating}>
                     <FontAwesome name="star" size={12} color="#FFD700" />
                     <Text style={styles.ratingText}>
-                        {item.rating || 4.9} ({item.reviews || '0'} Reviews)
+                        {item.rating || 4.9} ({Array.isArray(item.reviews) ? item.reviews.length : 0} Reviews)
                     </Text>
                 </View>
                 <Text style={styles.productPrice}>${item.price}</Text>
