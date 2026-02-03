@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react';
+import React, { useState, useMemo, useEffect, useRef } from 'react';
 import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image, Modal, Pressable, Dimensions, TextInput, ToastAndroid, Alert } from 'react-native';
 import { useNavigation } from '@react-navigation/core';
 import Ionicons from 'react-native-vector-icons/Ionicons';
@@ -11,15 +11,82 @@ import axios from 'axios';
 import config from '../config';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { clearCart } from '../redux/cartSlice';
+import MapView, { Marker } from 'react-native-maps';
+import Geolocation from '@react-native-community/geolocation';
+import { geocodeAddress } from './Shipment/helperfunctions';
 
 const steps = ["Shipping", "Payment", "Review"];
 
 const CheckoutScreen = () => {
     const dispatch = useDispatch();
+    const isMapUpdate = useRef(false);
+    const [region, setRegion] = useState({
+        latitude: 24.8607,     // default Karachi
+        longitude: 67.0011,
+        latitudeDelta: 0.05,
+        longitudeDelta: 0.05,
+    });
+
+    const [marker, setMarker] = useState(null);
+
+    const getCurrentLocation = () => {
+        Geolocation.getCurrentPosition(
+            position => {
+                const { latitude, longitude } = position.coords;
+                setRegion({
+                    latitude,
+                    longitude,
+                    latitudeDelta: 0.05,
+                    longitudeDelta: 0.05,
+                });
+                setMarker({ latitude, longitude });
+            },
+            error => console.log(error),
+            { enableHighAccuracy: true }
+        );
+    };
+    useEffect(() => {
+        if (isAddressModalVisible) {
+            getCurrentLocation();
+        }
+    }, [isAddressModalVisible]);
     const products = useSelector(state => state.cart.cartItems);
+    useEffect(() => {
+        // if (isMapUpdate.current) return;
+        if (!customer_address || !city || !country) return;
+        console.log('Geocoding for address:', { customer_address, city, state, zip, country });
+        const timeout = setTimeout(async () => {
+            try {
+                setIsGeocoding(true);
+
+                const fullAddress = `${customer_address}, ${city}, ${state}, ${zip}, ${country}`;
+                const result = await geocodeAddress(fullAddress);
+                console.log('Geocode result:', result);
+                if (!result) return;
+
+                setRegion(prev => ({
+                    ...prev,
+                    latitude: result.latitude,
+                    longitude: result.longitude,
+                }));
+
+                setMarker({
+                    latitude: result.latitude,
+                    longitude: result.longitude,
+                });
+            } catch (e) {
+                console.log('Geocode error:', e);
+            } finally {
+                setIsGeocoding(false);
+            }
+        }, 200);
+
+        return () => clearTimeout(timeout);
+    }, [customer_address]);
 
     const navigation = useNavigation();
     const [currentStep, setCurrentStep] = useState(0);
+    const [isGeocoding, setIsGeocoding] = useState(false);
     const [isAddressModalVisible, setAddressModalVisible] = useState(false);
     const [isPickupModalVisible, setPickupModalVisible] = useState(false);
     const [customer_address, setCustomer_address] = useState("");
@@ -43,6 +110,7 @@ const CheckoutScreen = () => {
     twoDaysLater.setDate(today.getDate() + 2);
     const deliveryDateText = `Delivery Between ${formatDate(today)} and ${formatDate(twoDaysLater)}`;
     const shippingDateText = `${formatDate(today)} and ${formatDate(twoDaysLater)}`;
+    
     const handleNext = async () => {
         console.log('Handle Next Called', currentStep);
         if (currentStep === 0 && !customer_address) {
@@ -67,10 +135,10 @@ const CheckoutScreen = () => {
         if (currentStep < steps.length - 1) {
             console.log('Current Step:', currentStep);
             setCurrentStep(currentStep + 1);
-        } 
+        }
         else {
-              console.log('Last Step:', currentStep);
-            let userId = await AsyncStorage.getItem('userId');console.log()
+            console.log('Last Step:', currentStep);
+            let userId = await AsyncStorage.getItem('userId'); console.log()
             let paymentIntentRes = await axios.post(`${config.baseUrl}/payment/create-intent`, { amount: total * 100, currency: "usd" });
             if (!paymentIntentRes?.data?.clientSecret) {
                 console.log(paymentIntentRes?.data, 'No Response')
@@ -118,7 +186,6 @@ const CheckoutScreen = () => {
             }
         }
     };
-
     const renderHeader = () => (
         <View style={styles.header}>
             <TouchableOpacity onPress={() => navigation.goBack()} style={styles.backButton}></TouchableOpacity>
@@ -227,7 +294,35 @@ const CheckoutScreen = () => {
                 )}
             </View>
             <View style={styles.mapContainer}>
-                <Image source={map_img} style={styles.mapImage} />
+                {/* {<Image source={map_img} style={styles.mapImage} />} */}
+                {isGeocoding && (
+                    <Text style={{ color: '#888', marginBottom: 8 }}>
+                        Updating location…
+                    </Text>
+                )}
+                <MapView
+                    style={styles.mapImage}
+                    region={region}
+                    showsUserLocation
+                // onPress={async (e) => {
+                //     isMapUpdate.current = true;
+
+                //     const { latitude, longitude } = e.nativeEvent.coordinate;
+
+                //     setMarker({ latitude, longitude });
+                //     setRegion(prev => ({
+                //         ...prev,
+                //         latitude,
+                //         longitude,
+                //     }));
+
+                //     setTimeout(() => {
+                //         isMapUpdate.current = false;
+                //     }, 400);
+                // }}
+                >
+                    {marker && <Marker coordinate={marker} />}
+                </MapView>
             </View>
         </ScrollView>
     );
@@ -352,10 +447,43 @@ const CheckoutScreen = () => {
                         />
                     </View>
 
-                    <Image
+                    {/* <Image
                         source={map_img}
                         style={{ width: Dimensions.get("screen").width - 45, marginBottom: 30 }}
-                    />
+                    /> */}
+                    {isGeocoding && (
+                        <Text style={{ color: '#888', marginBottom: 8 }}>
+                            Updating location…
+                        </Text>
+                    )}
+                    <MapView
+                        style={{
+                            width: Dimensions.get("screen").width - 45,
+                            height: 180,
+                            borderRadius: 15,
+                            marginBottom: 30,
+                        }}
+                        region={region}
+                        mapType="standard"
+                        onPress={async (e) => {
+                            // isMapUpdate.current = true;
+
+                            const { latitude, longitude } = e.nativeEvent.coordinate;
+                            console.log('Map pressed at:', latitude, longitude);
+                            setMarker({ latitude, longitude });
+                            setRegion(prev => ({
+                                ...prev,
+                                latitude,
+                                longitude,
+                            }));
+
+                            // setTimeout(() => {
+                            //     isMapUpdate.current = false;
+                            // }, 400);
+                        }}
+                    >
+                        <Marker coordinate={marker} pinColor='red'><View>SF</View></Marker>
+                    </MapView>
 
                     <TouchableOpacity onPress={() => setAddressModalVisible(false)} style={[styles.nextButton, { marginBottom: 0 }]}>
                         <Text style={styles.nextButtonText}>Save</Text>
@@ -363,7 +491,17 @@ const CheckoutScreen = () => {
                 </View>
             </View>
         </Modal>
-    ), [isAddressModalVisible, customer_address, country, city, state, zip]);
+    ), [
+        isAddressModalVisible,
+        customer_address,
+        country,
+        city,
+        state,
+        zip,
+        region,
+        marker,
+        isGeocoding
+    ]);;
 
     const MemoizedPickupModal = useMemo(() => (
         <Modal
