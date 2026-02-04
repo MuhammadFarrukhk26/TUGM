@@ -24,9 +24,10 @@ const ProfileDetailScreen = ({ route }) => {
     const dispatch = useDispatch()
     const fetchProfileInfo = async () => {
         try {
-            let userId = await AsyncStorage.getItem('userId');
-            setcurrentUserId(userId)
-            let res = await axios.get(`${config.baseUrl2}/account/single/${userId}`);
+            let myuserId = await AsyncStorage.getItem('userId');
+            let user = userId || myuserId
+            setcurrentUserId(user)
+            let res = await axios.get(`${config.baseUrl2}/account/single/${user}`);
             if (res?.data) {
                 setProfileData(res?.data?.data);
             }

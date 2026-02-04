@@ -20,7 +20,6 @@ const SellerOrdersScreen = () => {
         try {
             // Get regular orders
             let res = await axios.get(`${config.baseUrl}/order/seller/${userId}`)
-            
             // Get auction shipments
             let shipmentsRes = await axios.get(`${config.baseUrl}/shipment/seller/${userId}`)
                 .catch(err => ({ data: { data: [] } })); // Fallback if endpoint doesn't exist yet
@@ -159,7 +158,7 @@ const styles = StyleSheet.create({
         backgroundColor: '#000',
         paddingTop: 60,
         paddingHorizontal: 20,
-        paddingBottom: 70
+        paddingBottom: 100
     },
     headerText: {
         color: 'white',

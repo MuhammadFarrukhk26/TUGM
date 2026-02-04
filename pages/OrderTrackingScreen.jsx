@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image } from 'react-native';
+import { View, StyleSheet, ScrollView, Text, TouchableOpacity, Image, ToastAndroid } from 'react-native';
 import { useNavigation, useRoute } from '@react-navigation/core';
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import product_img from "../assets/product/main.png";
@@ -32,6 +32,7 @@ const OrderTrackingScreen = () => {
             let res = await axios.get(`${config.baseUrl}/order/user/${userId}`)
             if (res?.data) {
                 console.log("orders", res?.data?.data)
+                console.log("orderId", res?.data?.data.find(order => order._id === orderId))
                 setOrders(res?.data?.data);
                 setOrderDetails(res?.data?.data.find(order => order._id === orderId));
                 setSelectedImage(res?.data?.data.find(order => order._id === orderId)?.productId?.images[0]);
@@ -57,6 +58,21 @@ const OrderTrackingScreen = () => {
             setLoading(false);
         }
     };
+    const cancelOrder = async (id) => {
+        try {
+            let res = await axios.put(`${config.baseUrl}/order/status/${id}`, { status: "cancelled" })
+            if (res?.data) {
+                fetchProduct();
+                ToastAndroid.show('Order Cancelled!', ToastAndroid.SHORT);
+
+            }
+        }
+        catch (error) {
+            console.log(error)
+        }
+    }
+
+
     useEffect(() => {
         fetchProduct()
         // markAsDelivered(orderId);
@@ -71,11 +87,27 @@ const OrderTrackingScreen = () => {
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContent}>
                 <View style={styles.statusContainer}>
-                    {orderDetails?.status === 'delivered' ? <View style={styles.successIcon}>
-                        <Ionicons name="checkmark" size={30} color="black" />
-                    </View> : <Image source={truck_img} style={styles.truckImage} />}
+                    {orderDetails?.status === "cancelled" ? (
+                        <View style={styles.cancelIcon}>
+                            <Ionicons name="close" size={30} color="black" />
+                        </View>
+                    ) : orderDetails?.status === "delivered" ? (
+                        <View style={styles.successIcon}>
+                            <Ionicons name="checkmark" size={30} color="black" />
+                        </View>
+                    ) : (
+                        <Image source={truck_img} style={styles.truckImage} />
+                    )}
+
                     <Text style={styles.statusTitle}>Order Status</Text>
-                    <Text style={styles.statusSubtitle}>{orderDetails?.status === 'delivered' ? 'Your package has been delivered' : 'Your package is on the way'}</Text>
+
+                    <Text style={styles.statusSubtitle}>
+                        {orderDetails?.status === "cancelled"
+                            ? "Your order has been cancelled"
+                            : orderDetails?.status === "delivered"
+                                ? "Your package has been delivered"
+                                : "Your package is on the way"}
+                    </Text>
                 </View>
                 {/* {orderDetails?.productId */}
                 <View style={styles.productCard}>
@@ -124,7 +156,7 @@ const OrderTrackingScreen = () => {
                 {orderDetails?.status === "delivered" && <TouchableOpacity onPress={() => navigation.navigate("order_review", { orderDetails: orderDetails })} style={styles.trackOrderButton}>
                     <Text style={styles.trackOrderButtonText}> Review Order</Text>
                 </TouchableOpacity>}
-                {orderDetails?.status === "ongoing" && <TouchableOpacity style={styles.cancelOrderButton}>
+                {orderDetails?.status === "ongoing" && <TouchableOpacity style={styles.cancelOrderButton} onPress={() => cancelOrder(orderDetails?._id)}>
                     <Text style={styles.cancelOrderButtonText}>Cancel Order</Text>
                 </TouchableOpacity>}
             </ScrollView>
@@ -399,6 +431,14 @@ const styles = StyleSheet.create({
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 20,
+    },
+    cancelIcon: {
+        width: 60,
+        height: 60,
+        borderRadius: 30,
+        backgroundColor: "#f8d7da",
+        justifyContent: "center",
+        alignItems: "center",
     },
 });
 

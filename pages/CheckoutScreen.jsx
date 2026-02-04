@@ -11,7 +11,7 @@ import axios from 'axios';
 import config from '../config';
 import { initPaymentSheet, presentPaymentSheet } from '@stripe/stripe-react-native';
 import { clearCart } from '../redux/cartSlice';
-import MapView, { Marker } from 'react-native-maps';
+import MapView, { Marker, PROVIDER_GOOGLE } from 'react-native-maps';
 import Geolocation from '@react-native-community/geolocation';
 import { geocodeAddress } from './Shipment/helperfunctions';
 
@@ -26,8 +26,10 @@ const CheckoutScreen = () => {
         latitudeDelta: 0.05,
         longitudeDelta: 0.05,
     });
-
-    const [marker, setMarker] = useState(null);
+    const [marker, setMarker] = useState({
+        latitude: 24.8607,
+        longitude: 67.0011,
+    });
 
     const getCurrentLocation = () => {
         Geolocation.getCurrentPosition(
@@ -83,7 +85,7 @@ const CheckoutScreen = () => {
 
         return () => clearTimeout(timeout);
     }, [customer_address]);
-
+    const mapRef = useRef(null);
     const navigation = useNavigation();
     const [currentStep, setCurrentStep] = useState(0);
     const [isGeocoding, setIsGeocoding] = useState(false);
@@ -110,7 +112,7 @@ const CheckoutScreen = () => {
     twoDaysLater.setDate(today.getDate() + 2);
     const deliveryDateText = `Delivery Between ${formatDate(today)} and ${formatDate(twoDaysLater)}`;
     const shippingDateText = `${formatDate(today)} and ${formatDate(twoDaysLater)}`;
-    
+
     const handleNext = async () => {
         console.log('Handle Next Called', currentStep);
         if (currentStep === 0 && !customer_address) {
@@ -264,6 +266,7 @@ const CheckoutScreen = () => {
             <TouchableOpacity onPress={() => navigation.navigate('Cart')} style={styles.goBackToCart}>
                 <Text style={styles.goBackText}>Go to cart</Text>
             </TouchableOpacity>
+            
         </ScrollView>
     );
 
@@ -390,7 +393,7 @@ const CheckoutScreen = () => {
             </View>
         </ScrollView>
     );
-
+    console.log("Marker coords:", marker);
     const MemoizedAddressModal = useMemo(() => (
         <Modal
             animationType="slide"
@@ -456,35 +459,87 @@ const CheckoutScreen = () => {
                             Updating location…
                         </Text>
                     )}
-                    <MapView
-                        style={{
-                            width: Dimensions.get("screen").width - 45,
-                            height: 180,
-                            borderRadius: 15,
-                            marginBottom: 30,
-                        }}
-                        region={region}
-                        mapType="standard"
-                        onPress={async (e) => {
-                            // isMapUpdate.current = true;
+                    {/* <View>
+                        <MapView
+                            style={{
+                                width: Dimensions.get("screen").width - 45,
+                                height: 180,
+                                borderRadius: 15,
+                                marginBottom: 30,
+                            }}
+                            region={region}
+                            initialRegion={region}
+                            provider="google"
+                            mapType="standard"
+                            onPress={(e) => {
+                                const { latitude, longitude } = e.nativeEvent.coordinate;
+                                console.log("Map pressed at:", latitude, longitude);
+                                setMarker({ latitude, longitude });
+                                setRegion((prev) => ({ ...prev, latitude, longitude }));
+                            }}
+                        >
+                            {marker && (
+                                <Marker
+                                    coordinate={marker}
+                                    pinColor="red"
+                                />
+                            )}
+                        </MapView>
+                    </View> */}
+                    {/* <View style={{ borderRadius: 15, overflow: "hidden" }}>
+                        <MapView
+                            provider="google"
+                            style={{
+                                width: Dimensions.get("screen").width - 45,
+                                height: 180,
+                            }}
+                            initialRegion={region}
+                            onPress={(e) => {
+                                const { latitude, longitude } = e.nativeEvent.coordinate;
+                                setMarker({ latitude, longitude });
+                            }}
+                        >
+                            <Marker
+                                key={`${marker.latitude}-${marker.longitude}`}
+                                coordinate={marker}
+                                pinColor="red"
+                            />
+                        </MapView>
+                    </View> */}
+                    <View style={{ borderRadius: 15, overflow: "hidden", marginBottom: 30 }}>
+                        <MapView
+                            ref={mapRef}
+                            provider={PROVIDER_GOOGLE}
+                            style={{
+                                width: Dimensions.get("screen").width - 45,
+                                height: 180,
+                            }}
+                            liteMode={true}
+                            initialRegion={region}
+                            showsUserLocation={true}
+                            onPress={(e) => {
+                                const { latitude, longitude } = e.nativeEvent.coordinate;
 
-                            const { latitude, longitude } = e.nativeEvent.coordinate;
-                            console.log('Map pressed at:', latitude, longitude);
-                            setMarker({ latitude, longitude });
-                            setRegion(prev => ({
-                                ...prev,
-                                latitude,
-                                longitude,
-                            }));
+                                setMarker({ latitude, longitude });
 
-                            // setTimeout(() => {
-                            //     isMapUpdate.current = false;
-                            // }, 400);
-                        }}
-                    >
-                        <Marker coordinate={marker} pinColor='red'><View>SF</View></Marker>
-                    </MapView>
-
+                                mapRef.current?.animateToRegion(
+                                    {
+                                        latitude,
+                                        longitude,
+                                        latitudeDelta: 0.05,
+                                        longitudeDelta: 0.05,
+                                    },
+                                    500
+                                );
+                            }}
+                        >
+                            <Marker
+                                coordinate={{ latitude: 24.8607, longitude: 67.0011 }}
+                                title="Selected Location"
+                                description="Marker Working"
+                            />
+                        </MapView>
+                    </View>
                     <TouchableOpacity onPress={() => setAddressModalVisible(false)} style={[styles.nextButton, { marginBottom: 0 }]}>
                         <Text style={styles.nextButtonText}>Save</Text>
                     </TouchableOpacity>
@@ -914,7 +969,7 @@ const styles = StyleSheet.create({
     mapImage: {
         width: '100%',
         height: '100%',
-        resizeMode: 'cover',
+        // resizeMode: 'cover',
     },
     reviewInstruction: {
         color: 'white',

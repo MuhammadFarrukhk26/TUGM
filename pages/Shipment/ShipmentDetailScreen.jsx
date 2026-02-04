@@ -15,71 +15,109 @@ const ShipmentDetailScreen = () => {
     const route = useRoute();
     const { shipment } = route.params;
 
+    // const handlePrintShippingLabel = async () => {
+    //     try {
+    //         const url = `${config.baseUrl}/order/print/${shipment._id}`;
+    //         const fileName = `shipment_${shipment._id}.pdf`;
+
+    //         // Fetch PDF as arraybuffer
+    //         const response = await axios.post(url, {}, { responseType: 'arraybuffer', });
+    //         const base64Data = encode(response.data);
+    //         console.log("Base64 Data Length:", response);
+    //         if (Platform.OS === 'android') {
+    //             const version = Platform.Version;
+
+    //             // Android 11+ needs MANAGE_EXTERNAL_STORAGE or use app folder
+    //             let hasPermission = true;
+
+    //             if (version < 33) {
+    //                 // Android <= 12
+    //                 const granted = await PermissionsAndroid.request(
+    //                     PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
+    //                     {
+    //                         title: 'Storage Permission Required',
+    //                         message: 'App needs access to your storage to save the PDF',
+    //                         buttonPositive: 'OK',
+    //                     }
+    //                 );
+    //                 hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
+    //             }
+
+    //             if (!hasPermission) {
+    //                 Alert.alert('Permission Denied', 'Cannot save PDF without storage permission');
+    //                 return;
+    //             }
+
+    //             // Get directories
+    //             const dirs = RNFetchBlob.fs.dirs;
+    //             const path = `${dirs.DownloadDir}/${fileName}`; // Downloads folder
+
+    //             // Save file
+    //             await RNFetchBlob.fs.writeFile(path, base64Data, 'base64');
+
+    //             // Show in Downloads app
+    //             RNFetchBlob.android.addCompleteDownload({
+    //                 title: fileName,
+    //                 description: 'Shipment PDF',
+    //                 mime: 'application/pdf',
+    //                 path,
+    //                 showNotification: true,
+    //                 open: true,
+    //             });
+
+    //             Alert.alert('Success', `PDF saved to Downloads`);
+    //             console.log('PDF saved at:', path);
+    //         } else {
+    //             // iOS: save to DocumentDir
+    //             const path = `${RNFS.DocumentDirectoryPath}/${fileName}`;
+    //             await RNFS.writeFile(path, base64Data, 'base64');
+    //             Alert.alert('Success', `PDF saved to Documents`);
+    //             console.log('PDF saved at:', path);
+    //         }
+    //     } catch (err) {
+    //         console.error(err);
+    //         Alert.alert('Error', 'Failed to save PDF');
+    //     }
+    // };
     const handlePrintShippingLabel = async () => {
         try {
             const url = `${config.baseUrl}/order/print/${shipment._id}`;
             const fileName = `shipment_${shipment._id}.pdf`;
 
-            // Fetch PDF as arraybuffer
-            const response = await axios.post(url, {}, { responseType: 'arraybuffer' });
-            const base64Data = encode(response.data);
+            const response = await axios.post(url, {}, {
+                responseType: "arraybuffer",
+                timeout: 120000,
+            });
 
-            if (Platform.OS === 'android') {
-                const version = Platform.Version;
+            const base64Data = RNFetchBlob.base64.encode(response.data);
 
-                // Android 11+ needs MANAGE_EXTERNAL_STORAGE or use app folder
-                let hasPermission = true;
+            const dirs = RNFetchBlob.fs.dirs;
+            const path =
+                Platform.OS === "android"
+                    ? `${dirs.DownloadDir}/${fileName}`
+                    : `${dirs.DocumentDir}/${fileName}`;
 
-                if (version < 33) {
-                    // Android <= 12
-                    const granted = await PermissionsAndroid.request(
-                        PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE,
-                        {
-                            title: 'Storage Permission Required',
-                            message: 'App needs access to your storage to save the PDF',
-                            buttonPositive: 'OK',
-                        }
-                    );
-                    hasPermission = granted === PermissionsAndroid.RESULTS.GRANTED;
-                }
+            await RNFetchBlob.fs.writeFile(path, base64Data, "base64");
 
-                if (!hasPermission) {
-                    Alert.alert('Permission Denied', 'Cannot save PDF without storage permission');
-                    return;
-                }
-
-                // Get directories
-                const dirs = RNFetchBlob.fs.dirs;
-                const path = `${dirs.DownloadDir}/${fileName}`; // Downloads folder
-
-                // Save file
-                await RNFetchBlob.fs.writeFile(path, base64Data, 'base64');
-
-                // Show in Downloads app
+            if (Platform.OS === "android") {
                 RNFetchBlob.android.addCompleteDownload({
                     title: fileName,
-                    description: 'Shipment PDF',
-                    mime: 'application/pdf',
+                    description: "Shipment PDF",
+                    mime: "application/pdf",
                     path,
                     showNotification: true,
-                    open: true,
                 });
-
-                Alert.alert('Success', `PDF saved to Downloads`);
-                console.log('PDF saved at:', path);
-            } else {
-                // iOS: save to DocumentDir
-                const path = `${RNFS.DocumentDirectoryPath}/${fileName}`;
-                await RNFS.writeFile(path, base64Data, 'base64');
-                Alert.alert('Success', `PDF saved to Documents`);
-                console.log('PDF saved at:', path);
             }
+
+            Alert.alert("Success", `PDF saved at: ${path}`);
+            console.log("PDF saved at:", path);
+
         } catch (err) {
-            console.error(err);
-            Alert.alert('Error', 'Failed to save PDF');
+            console.log("PDF Download Error:", err?.message);
+            console.log("Status:", err?.response?.status);
+            Alert.alert("Error", "Failed to save PDF");
         }
     };
-
     const handleTrackingLink = () => {
         if (!shipment.trackingId) return;
         const trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.trackingId}`;

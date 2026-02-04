@@ -32,7 +32,7 @@ android {
         release {
             storeFile file('release.keystore')
             storePassword 'tugm123'
-            keyAlias 'release'
+            keyAlias 'TUGMKey'
             keyPassword 'tugm123'
         }
     }
@@ -52,6 +52,7 @@ android {
 dependencies {
     implementation("com.facebook.react:react-android")
     implementation project(':react-native-vector-icons')
+     implementation "com.google.android.gms:play-services-maps:18.2.0"
     if (hermesEnabled.toBoolean()) {
         implementation("com.facebook.react:hermes-android")
     } else {

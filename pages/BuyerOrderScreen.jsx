@@ -25,7 +25,7 @@ const BuyerOrderScreen = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/order/user/${userId}`)
             if (res?.data) {
-                // console.log("orders", res?.data?.data)
+                console.log("orders", res?.data?.data)
                 setOrders(res?.data?.data);
             }
         }
