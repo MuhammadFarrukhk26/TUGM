@@ -50,7 +50,7 @@ const HomeScreen = () => {
         try {
             let userId = await AsyncStorage.getItem('userId');
             setUid(userId)
-            let res = await axios.get(`${config.baseUrl2}/stream/active`);
+            let res = await axios.get(`${config.baseUrl2}/stream/live`);
             if (res?.data) {
                 console.log('Auction list',res?.data?.data)
                 setStreams(res?.data?.data);
@@ -368,8 +368,8 @@ const HomeScreen = () => {
                             <View style={styles.productInfo}>
                                 <Text style={styles.productName}>{product?.title}</Text>
                                 <View style={styles.ratingContainer}>
-                                    <Text style={styles.rating}>4.3</Text>
-                                    <Text style={styles.reviews}>(0 Reviews)</Text>
+                                    <Text style={styles.rating}>{product?.averageRating}</Text>
+                                    <Text style={styles.reviews}>({product?.reviews?.length} Reviews)</Text>
                                 </View>
                                 <Text style={styles.price}>${product.price.toFixed(2)}</Text>
                             </View>

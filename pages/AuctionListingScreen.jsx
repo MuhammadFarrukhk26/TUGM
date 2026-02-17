@@ -96,11 +96,20 @@ const AuctionListingScreen = () => {
         try {
             let userId = await AsyncStorage.getItem('userId');
             setUid(userId)
+            // First API
             let res = await axios.get(`${config.baseUrl}/stream/active`);
-            if (res?.data) {
-                setStreams(res?.data?.data);
-                console.log(res?.data?.data)
-            }
+            let activeData = res?.data?.data || [];
+
+            // Second API
+            let res2 = await axios.get(`${config.baseUrl}/stream/live`);
+            let liveData = res2?.data?.data || [];
+
+            // Merge both properly
+            setStreams(prevStreams => [
+                ...activeData,
+                ...liveData
+            ]);
+
         }
         catch (error) {
             console.log(error);
@@ -184,11 +193,11 @@ const AuctionListingScreen = () => {
                                         </View>
                                         <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.cardList}>
                                             {streams?.map((stream, index) => (
-                                                <TouchableOpacity onPress={() => { navigation.navigate("CreatorStream", { streamId: stream?.streamId,isHost:false }) }} key={stream?._id} style={styles.card}>
+                                                <TouchableOpacity onPress={() => { navigation.navigate("CreatorStream", { streamId: stream?.streamId, isHost: false }) }} key={stream?._id} style={styles.card}>
                                                     <Image source={{ uri: stream?.coverImage || stream?.creatorId?.profile }} style={styles.cardImage} blurRadius={4} />
                                                     <View style={styles.cardOverlay}>
                                                         <View style={styles.profileContainer}>
-                                                            <Image source={{ uri: stream?.creatorId?.profile || stream?.creatorId?.coverImage  }} style={styles.profileImage} />
+                                                            <Image source={{ uri: stream?.creatorId?.profile || stream?.creatorId?.coverImage }} style={styles.profileImage} />
                                                             <Text style={styles.profileName}>{stream?.creatorId?.username}</Text>
                                                         </View>
                                                         <Text style={styles.upcomingText}>Live</Text>
@@ -201,7 +210,7 @@ const AuctionListingScreen = () => {
 
                                     {
                                         streams?.map((i) => (
-                                            <TouchableOpacity key={i?.id} onPress={() => { navigation.navigate("CreatorStream", { streamId: i?.streamId,isHost:false }) }} style={styles.liveContainer}>
+                                            <TouchableOpacity key={i?.id} onPress={() => { navigation.navigate("CreatorStream", { streamId: i?.streamId, isHost: false }) }} style={styles.liveContainer}>
                                                 <Image source={{ uri: i?.coverImage }} style={styles.liveImage} />
                                                 <View style={styles.liveInfo}>
                                                     <View style={styles.liveUserInfo}>
@@ -284,7 +293,7 @@ const styles = StyleSheet.create({
         flex: 1,
         backgroundColor: '#000',
         paddingTop: 40,
-        paddingBottom: 20
+        paddingBottom: 40
     },
     storyContainer: {
         paddingVertical: 20,
@@ -418,12 +427,12 @@ const styles = StyleSheet.create({
         gap: 10
     },
     card: {
-        width:150,
+        width: 150,
         backgroundColor: '#282828',
         borderRadius: 10,
         marginBottom: 20,
         overflow: 'hidden',
-        marginHorizontal:15,
+        marginHorizontal: 15,
     },
     cardImage: {
         width: '100%',

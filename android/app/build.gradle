@@ -30,7 +30,7 @@ android {
             keyPassword 'android'
         }
         release {
-            storeFile file('release.keystore')
+            storeFile file('tugm-release-key.keystore')
             storePassword 'tugm123'
             keyAlias 'TUGMKey'
             keyPassword 'tugm123'

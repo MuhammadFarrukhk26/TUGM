@@ -84,19 +84,95 @@ const CreateStreamScreen = () => {
         });
     };
 
+    // const handleStartStream = async () => {
+    //     let creatorId = await AsyncStorage.getItem('userId');
+
+    //     if (!data.startingBid || data.productId.length === 0 || !data.image) {
+    //         ToastAndroid.show('All Fields Are Required!', ToastAndroid.SHORT);
+    //         return;
+    //     }
+
+    //     const formData = new FormData();
+    //     formData.append("startingBid", data.startingBid);
+    //     formData.append("creatorId", creatorId);
+    //     data.productId.forEach((id) => formData.append("productId[]", id));
+
+    //     if (data.image) {
+    //         formData.append("image", {
+    //             uri: data.image,
+    //             name: "product.jpg",
+    //             type: "image/jpeg",
+    //         });
+    //     }
+
+    //     try {
+    //         ToastAndroid.show('Creating Stream!', ToastAndroid.SHORT);
+    //         const res = await axios.post(`${config.baseUrl}/stream/create`, formData, {
+    //             headers: { 'Content-Type': 'multipart/form-data' },
+    //         });
+
+    //         if (res?.data?.data) {
+    //             ToastAndroid.show('Stream Created!', ToastAndroid.SHORT);
+    //             await AsyncStorage.setItem('streamId', res.data.data._id);
+    //             setTimeout(() => {
+    //                 navigation.replace("CreatorStream", {
+    //                     streamId: res.data.data.streamId,
+    //                     isHost: true,
+    //                 });
+    //             }, 3000);
+    //         }
+    //     } catch (error) {
+    //         console.log("Error creating stream:", error);
+    //     }
+    // };
+
+    const convertTimeToMinutes = (timeString) => {
+        if (timeString.includes("s")) {
+            const seconds = parseInt(timeString.replace("s", ""));
+            return seconds / 60; // backend will convert to Date
+        }
+        if (timeString.includes("m")) {
+            return parseInt(timeString.replace("m", ""));
+        }
+        return 1;
+    };
+
     const handleStartStream = async () => {
         let creatorId = await AsyncStorage.getItem('userId');
 
-        if (!data.startingBid || data.productId.length === 0 || !data.image) {
-            ToastAndroid.show('All Fields Are Required!', ToastAndroid.SHORT);
+        const biddingDuration = convertTimeToMinutes(selectedTime);
+
+        if (!data.startingBid || isNaN(data.startingBid)) {
+            ToastAndroid.show('Valid Starting Bid Required!', ToastAndroid.SHORT);
+            return;
+        }
+
+        if (data.productId.length === 0) {
+            ToastAndroid.show('Select at least one product!', ToastAndroid.SHORT);
+            return;
+        }
+
+        if (!data.image) {
+            ToastAndroid.show('Cover Image Required!', ToastAndroid.SHORT);
             return;
         }
 
         const formData = new FormData();
-        formData.append("startingBid", data.startingBid);
-        formData.append("creatorId", creatorId);
-        data.productId.forEach((id) => formData.append("productId[]", id));
 
+        formData.append("startingBid", Number(data.startingBid));
+        formData.append("creatorId", creatorId);
+        formData.append("biddingDuration", biddingDuration);
+        formData.append("duration", biddingDuration);
+        formData.append("mode", selectedTab?.toUpperCase());
+        data.productId.forEach((id) => {
+            formData.append("productId[]", id);
+        });
+
+        // formData.append("coverImage", {
+        //     uri: data.image,
+        //     name: "cover.jpg",
+        //     type: "image/jpeg",
+        // });
         if (data.image) {
             formData.append("image", {
                 uri: data.image,
@@ -104,31 +180,31 @@ const CreateStreamScreen = () => {
                 type: "image/jpeg",
             });
         }
-
         try {
-            ToastAndroid.show('Creating Stream!', ToastAndroid.SHORT);
-            const res = await axios.post(`${config.baseUrl}/stream/create`, formData, {
-                headers: { 'Content-Type': 'multipart/form-data' },
-            });
+            ToastAndroid.show('Creating Stream...', ToastAndroid.SHORT);
+
+            const res = await axios.post(
+                `${config.baseUrl}/stream/create`,
+                formData,
+                { headers: { 'Content-Type': 'multipart/form-data' } }
+            );
 
             if (res?.data?.data) {
                 ToastAndroid.show('Stream Created!', ToastAndroid.SHORT);
+
                 await AsyncStorage.setItem('streamId', res.data.data._id);
-                setTimeout(() => {
-                    navigation.replace("CreatorStream", {
-                        streamId: res.data.data.streamId,
-                        isHost: true,
-                    });
-                }, 3000);
+
+                navigation.replace("CreatorStream", {
+                    streamId: res.data.data.streamId,
+                    isHost: true,
+                });
             }
+
         } catch (error) {
-            console.log("Error creating stream:", error);
+            console.log("Error creating stream:", error?.response?.data || error.message);
+            ToastAndroid.show('Failed to create stream', ToastAndroid.SHORT);
         }
     };
-
-
-
-
     useEffect(() => {
         fetchCategory();
         fetchProduct()

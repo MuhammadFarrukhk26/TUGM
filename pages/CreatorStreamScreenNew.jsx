@@ -51,9 +51,7 @@ const CreatorStreamScreen = ({ route }) => {
 
     const [showProductCards, setShowProductCards] = useState(true);
 
-    const [suddenDeathEnabled, setSuddenDeathEnabled] = useState(false);
-    const [suddenDeathThreshold, setSuddenDeathThreshold] = useState(10); // seconds
-    const [suddenDeathExtension, setSuddenDeathExtension] = useState(10);
+
     const dispatch = useDispatch();
     const [amount, setAmount] = useState(0);
     const [bidAmount, setBidAmount] = useState('');
@@ -63,6 +61,7 @@ const CreatorStreamScreen = ({ route }) => {
     const [showGifts, setshowGifts] = useState(false)
     const [wallet, setwallet] = useState(false)
     const [showBid, setshowBid] = useState(false);
+    // const [currentBid, setCurrentBid] = useState('')
 
     const [showMessages, setshowMessages] = useState(true);
 
@@ -71,14 +70,21 @@ const CreatorStreamScreen = ({ route }) => {
     const [heart, setHeart] = useState(false);
     const [comments, setComments] = useState([]);
     const [message, setMessage] = useState("");
-    const [currentBid, setCurrentBid] = useState(0);
+
     const [timerSelectionModal, setTimerSelectionModal] = useState(false)
     const [timeLeft, setTimeLeft] = useState("");
     const [endTime, setEndTime] = useState(null);
     const [showBidNotifcation, setShowBidNotifcation] = useState(false);
     const [bidNotifcationData, setBidNotifcationData] = useState(null);
     const [biddingWinner, setBiddingWinner] = useState(false);
+
+
     useLiveStreamSocket(streamId, setComments);
+
+
+
+
+
     const setupVideoSDKEngine = async () => {
         if (Platform.OS === "android") {
             await getPermission();
@@ -193,49 +199,69 @@ const CreatorStreamScreen = ({ route }) => {
         }
     };
 
-
     const fetchStreamInfo = async () => {
         try {
             let res = await axios.get(`${config.baseUrl}/stream/stream/${streamId}`);
-            const info = res.data.data;
-            console.log('stream info', info)
-            setStreamInfo(info);
-            setCurrentBid(info.currentBid || info.startingBid);
-            console.log(info)
-            if (info.mode === "AUCTION" && info.endTime) {
-                setEndTime(new Date(info.endTime).getTime());
+            if (res?.data) {
+                const info = res.data.data;
+                console.log(info, 'stream info')
+                setStreamInfo(info);
+                const created = new Date(info.createdAt).getTime();
+                const start = new Date(info.startTime).getTime();
+                const end = start + info.biddingEndTime * 1000;
+                if (info.mode === "AUCTION" && info.endTime) {
+                    setEndTime(new Date(end).getTime());
+                    console.log(new Date(end), new Date(end).getTime())
+                    // setTimeLeft(new Date(end).getTime())
 
-            } else {
-                setEndTime(null);
-            }
-            if (info.mode === "AUCTION") {
-                setSuddenDeathEnabled(info.suddenDeath === true);
-                setSuddenDeathThreshold(info.suddenDeathThresholdSeconds || 10);
-                setSuddenDeathExtension(info.suddenDeathExtensionSeconds || 10);
-
-                if (info.endTime) {
-                    setEndTime(new Date(info.endTime).getTime());
+                } else {
+                    setEndTime(null);
                 }
-            }
+                console.log(endTime)
 
-        } catch (err) {
-            console.log("Error fetching stream:", err);
+                fetchBiddings(info?._id);
+            }
+        } catch (error) {
+            console.log(error);
         }
     };
 
+    // const fetchStreamInfo = async () => {
+    //     try {
+    //         const res = await axios.get(`/stream/${streamId}`);
+    //         const info = res.data;
+
+    //         setStreamInfo(info);
+    //         // setCurrentBid(info.currentBid || info.startingBid);
+    //         console.log(info)
+    //         if (info.mode === "AUCTION" && info.endTime) {
+    //             setEndTime(new Date(info.endTime).getTime());
+    //         } else {
+    //             setEndTime(null);
+    //         }
+
+    //     } catch (err) {
+    //         console.log("Error fetching stream:", err);
+    //     }
+    // };
+
+    // const fetchBiddings = async (streamId) => {
+    //     try {
+    //         let res = await axios.get(`${config.baseUrl}/stream/biddings/${streamId}`);
+    //         if (res?.data) {
+    //             setBiddings(res?.data?.data);
+    //         }
+    //     } catch (error) {
+    //         console.log(error);
+    //     }
+    // };
+
+
     const fetchBiddings = async () => {
         try {
-
-            const res = await axios.get(`${config.baseUrl}/stream/biddings/${streamId}`);
-            console.log('bidding', res)
-            if (res?.data?.data) {
-                setBiddings(res.data.data);
-
-                // keep highest bid synced
-                if (res.data.data.length > 0) {
-                    setCurrentBid(res.data.data[0].bidAmount);
-                }
-            }
+            let res = await axios.get(`${config.baseUrl}/stream/biddings/${streamId}`);
+            setBiddings(res.data || []);
+            // setTimeLeft(endTime)
         } catch (err) {
             console.log("Error fetching bids:", err);
         }
@@ -400,15 +426,11 @@ const CreatorStreamScreen = ({ route }) => {
             Alert.alert("Auction Closed", "This auction has ended.");
             return;
         }
-        if (endTime && Date.now() >= endTime) {
-            Alert.alert("Bidding Closed", "The auction has ended.");
+        // Check if timer has ended
+        if (timeLeft === "00:00") {
+            Alert.alert("Bidding Closed", "The bidding time has ended. No more bids are accepted.");
             return;
         }
-        // Check if timer has ended
-        // if (timeLeft === "00:00") {
-        //     Alert.alert("Bidding Closed", "The bidding time has ended. No more bids are accepted.");
-        //     return;
-        // }
 
         const finalBidAmount = quickBid || (bidAmount ? parseInt(bidAmount) : 0);
         if (finalBidAmount <= currentBid) {
@@ -482,29 +504,49 @@ const CreatorStreamScreen = ({ route }) => {
 
     const handleAddTimer = async (minutes, seconds) => {
         try {
-            let biddingEndTime = minutes * 60 + seconds;
-            if (!isLiveAuction) {
-                Alert.alert("Not Allowed", "Timer can only be updated during a live auction.");
+            if (!streamInfo?._id) {
+                ToastAndroid.show('Stream not found', ToastAndroid.SHORT);
                 return;
             }
 
-            if (endTime && Date.now() >= endTime) {
-                Alert.alert("Auction Ended", "Auction has already ended.");
+            if (
+                typeof minutes !== 'number' ||
+                typeof seconds !== 'number' ||
+                minutes < 0 ||
+                seconds < 0
+            ) {
+                ToastAndroid.show('Invalid time input', ToastAndroid.SHORT);
                 return;
             }
 
-            let res = await axios.post(`${config.baseUrl2}/stream/bidding/timer`, { streamId: streamInfo?._id, biddingEndTime: biddingEndTime });
+            const biddingEndTime = minutes * 60 + seconds;
+
+            if (biddingEndTime <= 0) {
+                ToastAndroid.show('Time must be greater than 0', ToastAndroid.SHORT);
+                return;
+            }
+
+            const res = await axios.post(
+                `${config.baseUrl2}/stream/bidding/timer`,
+                {
+                    streamId: streamInfo._id,
+                    biddingEndTime
+                }
+            );
+
             if (res?.data?.data) {
-                console.log(res?.data?.data, 'timer added')
                 ToastAndroid.show('Timer Added!', ToastAndroid.SHORT);
                 fetchStreamInfo();
+            } else {
+                ToastAndroid.show('Failed to add timer', ToastAndroid.SHORT);
             }
+
         } catch (error) {
-            console.log(error);
-            console.log("Axios Error:", error.response?.data);
-            console.log("Status:", error.response?.status);
+            console.log('Add timer error:', error?.response?.data || error.message);
+            ToastAndroid.show('Something went wrong', ToastAndroid.SHORT);
         }
-    }
+    };
+
 
     // ✨ AUTO SHIPMENT CREATION FOR AUCTION WINNERS
     const createShipmentForWinner = async (stream, winningBid) => {
@@ -560,12 +602,7 @@ const CreatorStreamScreen = ({ route }) => {
             console.error('Notification error:', error);
         }
     };
-    const remainingSeconds = endTime ? Math.floor((endTime - Date.now()) / 1000) : 0;
 
-    const isSuddenDeathZone =
-        suddenDeathEnabled &&
-        remainingSeconds > 0 &&
-        remainingSeconds <= suddenDeathThreshold;
     useEffect(() => {
         const init = async () => {
             await fetchToken()
@@ -604,24 +641,53 @@ const CreatorStreamScreen = ({ route }) => {
         }
     }, [showBid]);
 
+    // BIDDING TIMER 
+    // useEffect(() => {
+    //     if (!endTime) return;
+
+    //     const interval = setInterval(() => {
+    //         const now = Date.now();
+    //         const diff = endTime - now;
+
+    //         if (diff <= 0) {
+    //             setTimeLeft("00:00");
+    //             clearInterval(interval);
+
+    //             if (biddings.length > 0) {
+    //                 setBiddingWinner(true);
+
+    //                 // ✨ AUTO-CREATE SHIPMENT FOR AUCTION WINNER
+    //                 const winningBid = biddings[0]; // Highest bid
+    //                 console.log('Winning Bid:', winningBid);
+    //                 //  createShipmentForWinner(streamInfo, winningBid);
+    //             }
+    //             return;
+    //         }
+
+    //         const minutes = Math.floor(diff / 1000 / 60);
+    //         const seconds = Math.floor((diff / 1000) % 60);
+    //         console.log(minutes)
+    //         setTimeLeft(
+    //             `${minutes.toString().padStart(2, "0")}:${seconds
+    //                 .toString()
+    //                 .padStart(2, "0")}`
+    //         );
+    //     }, 1000);
+
+
+    //     return () => clearInterval(interval);
+    // }, [endTime, biddings, streamInfo]);
 
     useEffect(() => {
         if (!endTime) return;
 
         const interval = setInterval(() => {
             const diff = endTime - Date.now();
+
             if (diff <= 0) {
                 setTimeLeft("00:00");
                 clearInterval(interval);
-
-                if (biddings.length > 0 && streamInfo) {
-                    const winningBid = biddings[0];
-                    createShipmentForWinner(streamInfo, winningBid);
-                    setBiddingWinner(true);
-
-                }
-
-                fetchStreamInfo();
+                fetchStreamInfo(); // refresh status from backend
                 return;
             }
 
@@ -638,31 +704,46 @@ const CreatorStreamScreen = ({ route }) => {
         return () => clearInterval(interval);
     }, [endTime]);
 
+    // SOCKET 
+    // useEffect(() => {
+    //     socketRef.current = io(config.socketUrl, { transports: ["websocket"] });
+    //     socketRef.current.emit("join", { streamId });
+    //     socketRef.current.on("biddingTimeUpdated", (biddingInfo) => {
+    //         console.log('biddingTimeUpdated', biddingInfo)
+    //         fetchStreamInfo()
+    //     });
+    //     socketRef.current.on("newBidding", (newBidding) => {
+    //         console.log('newBidding', newBidding)
+    //         setShowBidNotifcation(true)
+    //         setBidNotifcationData(newBidding)
+    //         fetchStreamInfo()
+    //         setTimeout(() => {
+    //             setShowBidNotifcation(false);
+    //             setBidNotifcationData(null)
+    //         }, 3000);
+    //     });
+    //     return () => {
+    //         socketRef.current.disconnect();
+    //     };
+    // }, [streamId]);
     useEffect(() => {
         socketRef.current = io("YOUR_BACKEND_URL");
 
         socketRef.current.emit("joinStream", streamId);
 
         socketRef.current.on("newBid", (data) => {
-            setCurrentBid(data.currentBid);
+            // setCurrentBid(data.currentBid);
             fetchBiddings();
         });
 
-        // socketRef.current.on("biddingTimeUpdated", (data) => {
-        //     if (data?.endTime) {
-        //         // setEndTime(new Date(data.endTime).getTime());
-        //         setEndTime(new Date(data.endTime).getTime());
-        //     }
-        // });
         socketRef.current.on("biddingTimeUpdated", (data) => {
             if (data?.endTime) {
-                setEndTime(new Date(data.endTime).getTime());
-            }
-
-            if (data?.currentBid) {
-                setCurrentBid(data.currentBid);
+                // setEndTime(new Date(data.endTime).getTime());
+                console.log(data)
+                setEndTime(new Date(info.endTime).getTime());
             }
         });
+
         socketRef.current.on("streamEnded", () => {
             fetchStreamInfo();
         });
@@ -674,11 +755,9 @@ const CreatorStreamScreen = ({ route }) => {
             socketRef.current.disconnect();
         };
     }, []);
-    // const currentBid = biddings.length > 0 ? biddings[0].bidAmount : 0
+    const currentBid = biddings.length > 0 ? biddings[0].bidAmount : 0
 
-    const isAuction = streamInfo?.mode === "AUCTION";
-    const isLiveAuction = isAuction && streamInfo?.status === "LIVE";
-    const isAuctionEnded = isAuction && (streamInfo?.status === "COMPLETED" || timeLeft === "00:00");
+
     return (
         <View style={{ flex: 1 }}>
             <KeyboardAwareScrollView contentContainerStyle={styles.container} enableOnAndroid={true}>
@@ -742,7 +821,7 @@ const CreatorStreamScreen = ({ route }) => {
 
                 {/* BIDDING TIMER  */}
                 <TouchableOpacity onPress={() => { setTimerSelectionModal(true) }} style={{ position: "absolute", top: 120, left: "5%", width: 80, height: 30, borderWidth: 1, borderColor: "#999893", borderRadius: 26, flexDirection: "row", justifyContent: "center", alignItems: "center" }}>
-                    <Text style={{ color: timeLeft && Number(timeLeft.split(":")[0]) * 60 + Number(timeLeft.split(":")[1]) <= 10 ? "red" : "white", fontSize: 14, marginRight: 5 }}>{timeLeft}</Text>
+                    <Text style={{ color: timeLeft && Number(timeLeft?.split(":")[0]) * 60 + Number(timeLeft?.split(":")[1]) <= 10 ? "red" : "white", fontSize: 14, marginRight: 5 }}>{timeLeft}</Text>
                     <AntDesign name="plus" size={14} color="white" />
                 </TouchableOpacity>
 
@@ -818,11 +897,7 @@ const CreatorStreamScreen = ({ route }) => {
                         </Animated.View>
                     )
                 }
-                {isSuddenDeathZone && (
-                    <Text style={{ color: "orange", fontSize: 12 }}>
-                        Sudden Death Active 🔥
-                    </Text>
-                )}
+
                 {/* DISABLE THAT  */}
                 <View style={{ position: 'absolute', bottom: isHost ? 230 : 250, right: 20, gap: 15, alignItems: "center" }}>
 
@@ -867,21 +942,9 @@ const CreatorStreamScreen = ({ route }) => {
                     </TouchableOpacity>
                     <Text style={{ color: "white", fontSize: 20, marginLeft: 5 }}>${currentBid}</Text>
                     <View>
-                        <Text style={{ color: timeLeft && Number(timeLeft.split(":")[0]) * 60 + Number(timeLeft.split(":")[1]) <= 10 ? "red" : "white", fontSize: 14, marginRight: 5 }}>{timeLeft}</Text>
+                        <Text style={{ color: timeLeft && Number(timeLeft?.split(":")[0]) * 60 + Number(timeLeft?.split(":")[1]) <= 10 ? "red" : "white", fontSize: 14, marginRight: 5 }}>{timeLeft}</Text>
                     </View>
-                    {/* <TouchableOpacity onPress={() => handleBid(currentBid + streamInfo?.bidIncrement || 2)} style={{ backgroundColor: "orange", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
-                        <Text style={{ color: "white", fontSize: 14 }}>Quick Bid</Text>
-                    </TouchableOpacity> */}
-                    <TouchableOpacity
-                        disabled={!isLiveAuction || (endTime && Date.now() >= endTime)}
-                        onPress={() => handleBid(currentBid + (streamInfo?.bidIncrement || 2))}
-                        style={{
-                            backgroundColor: (!isLiveAuction || (endTime && Date.now() >= endTime)) ? "gray" : "orange",
-                            paddingHorizontal: 10,
-                            paddingVertical: 5,
-                            borderRadius: 100
-                        }}
-                    >
+                    <TouchableOpacity onPress={() => handleBid(currentBid + 2)} style={{ backgroundColor: "orange", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
                         <Text style={{ color: "white", fontSize: 14 }}>Quick Bid</Text>
                     </TouchableOpacity>
                 </View>
@@ -1041,8 +1104,8 @@ const CreatorStreamScreen = ({ route }) => {
                                                 ${(item.price * quantity).toFixed(2)}
                                             </Text>
                                         </View>
-                                        {/* 
-                                        <TouchableOpacity
+
+                                        {/* <TouchableOpacity
                                             onPress={() => {
                                                 handleAddToCard(item);
                                                 setshowShirts(false);
@@ -1241,19 +1304,7 @@ const CreatorStreamScreen = ({ route }) => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* <Pressable onPress={() => { setshowShirts(true) }} style={styles.commanStyle}>
-                            <Ionicons name="cart-outline" size={20} color="#fff" />
-                        </Pressable> */}
-                        <Pressable
-                            onPress={() => {
-                                if (isLiveAuction) {
-                                    Alert.alert("Auction Mode", "Add to Cart is disabled during live auction.");
-                                    return;
-                                }
-                                setshowShirts(true);
-                            }}
-                            style={styles.commanStyle}
-                        >
+                        <Pressable onPress={() => { setshowShirts(true) }} style={styles.commanStyle}>
                             <Ionicons name="cart-outline" size={20} color="#fff" />
                         </Pressable>
                         <Pressable onPress={() => { setshowGifts(true) }} style={styles.commanStyle}>

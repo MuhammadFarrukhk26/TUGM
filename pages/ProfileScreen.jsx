@@ -138,8 +138,9 @@ const ProfileScreen = () => {
     useEffect(() => {
         fetchProfileInfo();
     }, []);
-    const logout = () => {
+    const logout = async () => {
         dispatch(clearCart());
+        await AsyncStorage.removeItem('userId')
         navigation.navigate('Login');
     }
     return (
