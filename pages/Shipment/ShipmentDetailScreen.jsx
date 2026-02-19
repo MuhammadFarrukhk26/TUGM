@@ -9,6 +9,7 @@ import RNFS from "react-native-fs";
 import { Alert, Platform } from "react-native";
 import { encode } from 'base64-arraybuffer';
 import RNFetchBlob from 'rn-fetch-blob';
+import FileViewer from 'react-native-file-viewer';
 
 const ShipmentDetailScreen = () => {
     const navigation = useNavigation();
@@ -119,6 +120,47 @@ const ShipmentDetailScreen = () => {
     //     }
     // };
 
+    // const handlePrintShippingLabel = async () => {
+    //     try {
+    //         const url = `${config.baseUrl}/order/print/${shipment._id}`;
+    //         const fileName = `shipment_${shipment._id}.pdf`;
+
+    //         const response = await axios.post(url, {}, {
+    //             responseType: "arraybuffer",
+    //             timeout: 120000,
+    //         });
+    //         console.log(response)
+    //         // ✅ Proper ArrayBuffer → base64 conversion
+    //         const base64Data = encode(response.data);
+    //         console.log(base64Data)
+    //         const dirs = RNFetchBlob.fs.dirs;
+    //         console.log(dirs)
+    //         const path =
+    //             Platform.OS === "android"
+    //                 ? `${dirs.DownloadDir}/${fileName}`
+    //                 : `${dirs.DocumentDir}/${fileName}`;
+
+    //         await RNFetchBlob.fs.writeFile(path, base64Data, "base64");
+
+    //         if (Platform.OS === "android") {
+    //             RNFetchBlob.android.addCompleteDownload({
+    //                 title: fileName,
+    //                 description: "Shipment PDF",
+    //                 mime: "application/pdf",
+    //                 path,
+    //                 showNotification: true,
+    //             });
+    //         }
+
+    //         Alert.alert("Success", `PDF saved at: ${path}`);
+    //         console.log("PDF saved at:", path);
+
+    //     } catch (err) {
+    //         console.log("PDF Download Error:", err?.message);
+    //         console.log("Status:", err?.response?.status);
+    //         Alert.alert("Error", "Failed to save PDF");
+    //     }
+    // };
     const handlePrintShippingLabel = async () => {
         try {
             const url = `${config.baseUrl}/order/print/${shipment._id}`;
@@ -126,41 +168,60 @@ const ShipmentDetailScreen = () => {
 
             const response = await axios.post(url, {}, {
                 responseType: "arraybuffer",
-                timeout: 120000,
             });
-            console.log(response)
-            // ✅ Proper ArrayBuffer → base64 conversion
+
             const base64Data = encode(response.data);
-            console.log(base64Data)
-            const dirs = RNFetchBlob.fs.dirs;
-            console.log(dirs)
-            const path =
-                Platform.OS === "android"
-                    ? `${dirs.DownloadDir}/${fileName}`
-                    : `${dirs.DocumentDir}/${fileName}`;
 
-            await RNFetchBlob.fs.writeFile(path, base64Data, "base64");
+            const path = `${RNFS.DocumentDirectoryPath}/${fileName}`;
 
-            if (Platform.OS === "android") {
-                RNFetchBlob.android.addCompleteDownload({
-                    title: fileName,
-                    description: "Shipment PDF",
-                    mime: "application/pdf",
-                    path,
-                    showNotification: true,
-                });
-            }
+            await RNFS.writeFile(path, base64Data, "base64");
 
-            Alert.alert("Success", `PDF saved at: ${path}`);
-            console.log("PDF saved at:", path);
+            await FileViewer.open(path);
 
         } catch (err) {
-            console.log("PDF Download Error:", err?.message);
-            console.log("Status:", err?.response?.status);
+            console.log("PDF Download Error:", err);
             Alert.alert("Error", "Failed to save PDF");
         }
     };
 
+    //     const handlePrintShippingLabel = async () => {
+    //   try {
+    //     const url = `${config.baseUrl}/order/print/${shipment._id}`;
+    //     const fileName = `shipment_${shipment._id}.pdf`;
+
+    //     // 🔐 Android Permission (only required for Android < 13)
+    //     if (Platform.OS === "android") {
+    //       await PermissionsAndroid.request(
+    //         PermissionsAndroid.PERMISSIONS.WRITE_EXTERNAL_STORAGE
+    //       );
+    //     }
+
+    //     const response = await axios.post(url, {}, {
+    //       responseType: "arraybuffer",
+    //       timeout: 120000,
+    //     });
+
+    //     if (!response.data) {
+    //       throw new Error("Empty PDF response");
+    //     }
+
+    //     const base64Data = encode(response.data);
+
+    //    const path =
+    //   Platform.OS === "android"
+    //     ? `${RNFS.DocumentDirectoryPath}/${fileName}`
+    //     : `${RNFS.DocumentDirectoryPath}/${fileName}`;
+
+    //     await RNFS.writeFile(path, base64Data, "base64");
+
+    //     Alert.alert("Success", `PDF saved at:\n${path}`);
+    //     console.log("PDF saved at:", path);
+
+    //   } catch (err) {
+    //     console.log("PDF Download Error:", err);
+    //     Alert.alert("Error", "Failed to save PDF");
+    //   }
+    // };
     const handleTrackingLink = () => {
         if (!shipment.trackingId) return;
         const trackingUrl = `https://tools.usps.com/go/TrackConfirmAction?tLabels=${shipment.trackingId}`;
