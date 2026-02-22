@@ -126,17 +126,25 @@ const CreateStreamScreen = () => {
     //     }
     // };
 
-    const convertTimeToMinutes = (timeString) => {
-        if (timeString.includes("s")) {
-            const seconds = parseInt(timeString.replace("s", ""));
-            return seconds / 60; // backend will convert to Date
-        }
-        if (timeString.includes("m")) {
-            return parseInt(timeString.replace("m", ""));
-        }
-        return 1;
-    };
-
+    // const convertTimeToMinutes = (timeString) => {
+    //     if (timeString.includes("s")) {
+    //         const seconds = parseInt(timeString.replace("s", ""));
+    //         return seconds / 60; // backend will convert to Date
+    //     }
+    //     if (timeString.includes("m")) {
+    //         return parseInt(timeString.replace("m", ""));
+    //     }
+    //     return 1;
+    // };
+const convertTimeToMinutes = (timeString) => {
+    if (timeString.includes("s")) {
+        return parseInt(timeString.replace("s", ""));
+    }
+    if (timeString.includes("m")) {
+        return parseInt(timeString.replace("m", "")) * 60;
+    }
+    return 60;
+};
     const handleStartStream = async () => {
         let creatorId = await AsyncStorage.getItem('userId');
 
@@ -164,6 +172,7 @@ const CreateStreamScreen = () => {
         formData.append("biddingDuration", biddingDuration);
         formData.append("duration", biddingDuration);
         formData.append("mode", selectedTab?.toUpperCase());
+        formData.append("suddenDeath", isSuddenDeathEnabled ? true : false);
         data.productId.forEach((id) => {
             formData.append("productId[]", id);
         });
