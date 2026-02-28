@@ -165,6 +165,7 @@ const CheckoutScreen = () => {
                     else {
                         try {
                             const orderPayload = { userId, pickup_station, customer_address, product: products, city, country, zip, state };
+                            console.log('Order Payload:', orderPayload);
                             console.log('Sending order payload:', JSON.stringify(orderPayload, null, 2));
                             let orderRes = await axios.post(`${config.baseUrl}/order/checkout`, orderPayload);
                             if (orderRes?.data) {

@@ -63,6 +63,7 @@ const CreatorStreamScreen = ({ route }) => {
     const [showGifts, setshowGifts] = useState(false)
     const [wallet, setwallet] = useState(false)
     const [showBid, setshowBid] = useState(false);
+    const [Host, setHost] = useState(false);
 
     const [showMessages, setshowMessages] = useState(true);
 
@@ -89,7 +90,7 @@ const CreatorStreamScreen = ({ route }) => {
         const engine = createAgoraRtcEngine();
         agoraEngineRef.current = engine;
         engine.initialize({ appId });
-        if (isHost) {
+        if (Host) {
             engine.enableVideo();
             engine.startPreview();
         }
@@ -99,7 +100,7 @@ const CreatorStreamScreen = ({ route }) => {
         eventHandler.current = {
             onJoinChannelSuccess: () => {
                 setIsJoined(true);
-                if (isHost) {
+                if (Host) {
                     setViewerCount(1);
                 }
             },
@@ -123,14 +124,14 @@ const CreatorStreamScreen = ({ route }) => {
 
         await agoraEngineRef.current.joinChannel(tk, channelName, localUid, {
             channelProfile: ChannelProfileType.ChannelProfileLiveBroadcasting,
-            clientRoleType: isHost
+            clientRoleType: Host
                 ? ClientRoleType.ClientRoleBroadcaster
                 : ClientRoleType.ClientRoleAudience,
-            publishMicrophoneTrack: isHost,
-            publishCameraTrack: isHost,
+            publishMicrophoneTrack: Host,
+            publishCameraTrack: Host,
             autoSubscribeAudio: true,
             autoSubscribeVideo: true,
-            audienceLatencyLevel: isHost
+            audienceLatencyLevel: Host
                 ? undefined
                 : AudienceLatencyLevelType.AudienceLatencyLevelUltraLowLatency,
         });
@@ -208,6 +209,11 @@ const CreatorStreamScreen = ({ route }) => {
             // console.log('stream info', info)
             setStreamInfo(info);
             setCurrentBid(info.currentBid || info.startingBid);
+            let userId = await AsyncStorage.getItem('userId');
+            // console.log('ID', info?.creatorId?._id, 'Uid', userId)
+            if (info?.creatorId?._id === userId) {
+                setHost(true)
+            }
             // console.log(info)
             if (info.mode === "AUCTION" && info.endTime) {
                 setEndTime(new Date(info.endTime).getTime());
@@ -258,7 +264,7 @@ const CreatorStreamScreen = ({ route }) => {
     };
     const fetchToken = async () => {
         try {
-            let res = await axios.get(`${config.baseUrl3}/stream/token/${streamId}/${isHost ? "host" : "subscriber"}`);
+            let res = await axios.get(`${config.baseUrl3}/stream/token/${streamId}/${Host ? "host" : "subscriber"}`);
             if (res?.data) {
                 setToken(res?.data?.data);
                 await setupVideoSDKEngine();
@@ -304,110 +310,260 @@ const CreatorStreamScreen = ({ route }) => {
         );
     };
 
+    // const performEndStream = async () => {
+    //     try {
+    //         setEndingStream(true);
+    //         // Verify creator one more time before actually ending
+    //         if (!isActualCreator()) {
+    //             Alert.alert("Permission Denied", "Verification failed. Only the creator can end this stream.");
+    //             console.error("❌ Creator verification failed in performEndStream");
+    //             setEndingStream(false);
+    //             return;
+    //         }
+
+    //         const streamStatus = biddings.length > 0 ? "COMPLETED" : "UNSOLD";
+    //         const endPayload = {
+    //             status: streamStatus,
+    //             reason: streamStatus === "COMPLETED" ? "Stream ended manually by host" : "Stream ended with no bids"
+    //         };
+
+    //         if (biddings.length > 0) {
+    //             endPayload.winnerId = biddings[0].bidderId._id;
+    //             endPayload.winningBidAmount = biddings[0].bidAmount;
+    //         }
+    //         // Use streamId from route params
+    //         let res = await axios.put(`${config.baseUrl}/stream/end/${streamId}`, endPayload);
+
+    //         console.log("✅ Stream end response:", res?.data);
+
+    //         if (res?.data?.data) {
+    //             const updatedStream = res?.data?.data;
+    //             const winner = res?.data?.winner; // Assuming API returns winner details in response
+    //             console.log('Stream', updatedStream)
+    //             // Check if there's a winner (use highestBidder as it contains the winner ID)
+    //             if (updatedStream && (updatedStream.winnerId || updatedStream.highestBidder)) {
+    //                 console.log("🏆 Winner found from response - creating order and shipment");
+
+    //                 const winnerId = updatedStream.winnerId || updatedStream.highestBidder;
+    //                 const winningBidAmount = updatedStream.currentBid || updatedStream.winningBidAmount;
+    //                 const winnerName = winner.name || updatedStream.username;
+    //                 const winnerImage = winner.winnerImage || (biddings[0]?.bidderId?.profile) || null;
+    //                 let orderId = null;
+    //                 console.log("Stream ended with winner:", { winnerId, winningBidAmount, winnerName, winnerImage });
+    //                 // 📋 Create order first
+    //                 // try {
+    //                 //     const orderData = {
+    //                 //         buyerId: winnerId,
+    //                 //         sellerId: updatedStream.creatorId,
+    //                 //         products: updatedStream.productId || [],
+    //                 //         totalAmount: winningBidAmount,
+    //                 //         streamId: streamId,
+    //                 //         status: "PENDING",
+    //                 //         auctionMode: true
+    //                 //     };
+    //                 //     const orderRes = await axios.post(`${config.baseUrl}/order/create`, orderData);
+    //                 //     orderId = orderRes?.data?.data?._id;
+    //                 // } catch (orderError) {
+    //                 //     console.warn("⚠️ Order creation failed:", orderError.message);
+    //                 // }
+
+    //                 // // 📦 Create shipment using the order ID
+    //                 // try {
+    //                 //     const shipmentData = {
+    //                 //         orderId: orderId || updatedStream._id,
+    //                 //         winnerId: winnerId,
+    //                 //         sellerId: updatedStream.creatorId,
+    //                 //         product: updatedStream.auctionItem || updatedStream.product,
+    //                 //         bidAmount: winningBidAmount,
+    //                 //         streamId: streamId
+    //                 //     };
+    //                 //     await axios.post(`${config.baseUrl}/shipment/create`, shipmentData);
+    //                 // } catch (shipmentError) {
+    //                 //     console.warn("⚠️ Shipment creation failed:", shipmentError.message);
+    //                 // }
+    //                 setWinnerDetails({
+    //                     winnerId: winnerId,
+    //                     bidAmount: winningBidAmount,
+    //                     winnerImage: updatedStream.winnerImage,
+    //                     productId: updatedStream.productId,
+    //                     winnerName: winnerName
+    //                 });
+    //                 ToastAndroid.show(`Stream ended - Winner announced!`, ToastAndroid.SHORT);
+    //                 setBiddingWinner(true);
+
+    //                 // Close modal after 3 seconds if user doesn't manually close it
+    //                 setTimeout(async () => {
+    //                     setBiddingWinner(false);
+    //                     setWinnerDetails(null);
+    //                     setEndingStream(false);
+    //                     await leave();
+    //                     navigation.navigate('Home');
+    //                 }, 3000);
+    //             } else {
+    //                 ToastAndroid.show("Stream ended - No bids received", ToastAndroid.SHORT);
+
+    //                 setTimeout(async () => {
+    //                     setEndingStream(false);
+    //                     await leave();
+    //                     navigation.navigate('Home');
+    //                 }, 1500);
+    //             }
+    //         } else {
+    //             ToastAndroid.show("Error ending stream", ToastAndroid.SHORT);
+    //             setEndingStream(false);
+    //         }
+    //     } catch (error) {
+    //         ToastAndroid.show("Error ending stream: " + error.message, ToastAndroid.LONG);
+    //         setEndingStream(false);
+    //     }
+    // };
     const performEndStream = async () => {
         try {
             setEndingStream(true);
-            // Verify creator one more time before actually ending
+
             if (!isActualCreator()) {
-                Alert.alert("Permission Denied", "Verification failed. Only the creator can end this stream.");
-                console.error("❌ Creator verification failed in performEndStream");
+                Alert.alert("Permission Denied", "Only the creator can end this stream.");
                 setEndingStream(false);
                 return;
             }
 
             const streamStatus = biddings.length > 0 ? "COMPLETED" : "UNSOLD";
+
             const endPayload = {
                 status: streamStatus,
-                reason: streamStatus === "COMPLETED" ? "Stream ended manually by host" : "Stream ended with no bids"
+                reason:
+                    streamStatus === "COMPLETED"
+                        ? "Stream ended manually by host"
+                        : "Stream ended with no bids"
             };
 
             if (biddings.length > 0) {
-                endPayload.winnerId = biddings[0].bidderId._id;
-                endPayload.winningBidAmount = biddings[0].bidAmount;
+                endPayload.winnerId = biddings[0]?.bidderId?._id;
+                endPayload.winningBidAmount = biddings[0]?.bidAmount;
             }
-            // Use streamId from route params
-            let res = await axios.put(`${config.baseUrl}/stream/end/${streamId}`, endPayload);
 
-            console.log("✅ Stream end response:", res?.data);
+            const res = await axios.put(
+                `${config.baseUrl}/stream/end/${streamId}`,
+                endPayload
+            );
 
-            if (res?.data?.data) {
-                const updatedStream = res?.data?.data;
-                const winner = res?.data?.winner; // Assuming API returns winner details in response
-                console.log('Stream', updatedStream)
-                // Check if there's a winner (use highestBidder as it contains the winner ID)
-                if (updatedStream && (updatedStream.winnerId || updatedStream.highestBidder)) {
-                    console.log("🏆 Winner found from response - creating order and shipment");
+            const updatedStream = res?.data?.data;
+            const winnerFromApi = res?.data?.winner;
 
-                    const winnerId = updatedStream.winnerId || updatedStream.highestBidder;
-                    const winningBidAmount = updatedStream.currentBid || updatedStream.winningBidAmount;
-                    const winnerName = winner.name || updatedStream.username;
-                    const winnerImage = winner.winnerImage || (biddings[0]?.bidderId?.profile) || null;
-                    let orderId = null;
-                    console.log("Stream ended with winner:", { winnerId, winningBidAmount, winnerName, winnerImage });
-                    // 📋 Create order first
-                    // try {
-                    //     const orderData = {
-                    //         buyerId: winnerId,
-                    //         sellerId: updatedStream.creatorId,
-                    //         products: updatedStream.productId || [],
-                    //         totalAmount: winningBidAmount,
-                    //         streamId: streamId,
-                    //         status: "PENDING",
-                    //         auctionMode: true
-                    //     };
-                    //     const orderRes = await axios.post(`${config.baseUrl}/order/create`, orderData);
-                    //     orderId = orderRes?.data?.data?._id;
-                    // } catch (orderError) {
-                    //     console.warn("⚠️ Order creation failed:", orderError.message);
-                    // }
-
-                    // // 📦 Create shipment using the order ID
-                    // try {
-                    //     const shipmentData = {
-                    //         orderId: orderId || updatedStream._id,
-                    //         winnerId: winnerId,
-                    //         sellerId: updatedStream.creatorId,
-                    //         product: updatedStream.auctionItem || updatedStream.product,
-                    //         bidAmount: winningBidAmount,
-                    //         streamId: streamId
-                    //     };
-                    //     await axios.post(`${config.baseUrl}/shipment/create`, shipmentData);
-                    // } catch (shipmentError) {
-                    //     console.warn("⚠️ Shipment creation failed:", shipmentError.message);
-                    // }
-                    setWinnerDetails({
-                        winnerId: winnerId,
-                        bidAmount: winningBidAmount,
-                        winnerImage: updatedStream.winnerImage,
-                        productId: updatedStream.productId,
-                        winnerName: winnerName
-                    });
-                    ToastAndroid.show(`Stream ended - Winner announced!`, ToastAndroid.SHORT);
-                    setBiddingWinner(true);
-
-                    // Close modal after 3 seconds if user doesn't manually close it
-                    setTimeout(async () => {
-                        setBiddingWinner(false);
-                        setWinnerDetails(null);
-                        setEndingStream(false);
-                        await leave();
-                        navigation.navigate('Home');
-                    }, 3000);
-                } else {
-                    ToastAndroid.show("Stream ended - No bids received", ToastAndroid.SHORT);
-
-                    setTimeout(async () => {
-                        setEndingStream(false);
-                        await leave();
-                        navigation.navigate('Home');
-                    }, 1500);
-                }
-            } else {
+            if (!updatedStream) {
                 ToastAndroid.show("Error ending stream", ToastAndroid.SHORT);
                 setEndingStream(false);
+                return;
+            }
+
+            const winnerId =
+                updatedStream.winnerId ??
+                updatedStream.highestBidder ??
+                null;
+
+            if (winnerId) {
+                const winningBidAmount =
+                    updatedStream.currentBid ??
+                    updatedStream.winningBidAmount ??
+                    0;
+
+                const winnerName =
+                    winnerFromApi?.name ??
+                    updatedStream.username ??
+                    "Winner";
+
+                const winnerImage =
+                    winnerFromApi?.winnerImage ??
+                    biddings[0]?.bidderId?.profile ??
+                    null;
+
+                setWinnerDetails({
+                    winnerId,
+                    bidAmount: winningBidAmount,
+                    winnerImage,
+                    productId: updatedStream.productId,
+                    winnerName
+                });
+                try {
+                    const getProd = await axios.get(`${config.baseUrl}/product/single/${updatedStream.productId}`);
+                    let proddata = getProd?.data?.data;
+                    const orderPayload = {
+                        userId: winnerId,
+                        pickup_station: "Warehouse A - Los Angeles",
+
+                        customer_address: "1234 Sunset Blvd",
+                        city: "Los Angeles",
+                        state: "CA",
+                        zip: "90001",
+                        country: "USA",
+
+                        product: proddata|| [],
+
+                        // auctionMode: true,
+                        // streamId: streamId,
+                        totalAmount: winningBidAmount
+                    };
+
+                    console.log("Sending order payload:", JSON.stringify(orderPayload, null, 2));
+
+                    const orderRes = await axios.post(
+                        `${config.baseUrl}/order/checkout`,
+                        orderPayload
+                    );
+
+                    if (orderRes?.data) {
+                        console.log("Order Success:", orderRes.data);
+                        ToastAndroid.show("Order Created Successfully!", ToastAndroid.SHORT);
+                    }
+
+                } catch (orderError) {
+                    console.log("Order Error Details:", {
+                        message: orderError?.message,
+                        status: orderError?.response?.status,
+                        statusText: orderError?.response?.statusText,
+                        data: orderError?.response?.data,
+                        config: orderError?.config?.data
+                    });
+
+                    Alert.alert(
+                        "Order Error",
+                        `Order creation failed: ${orderError?.response?.data?.message ||
+                        orderError?.message ||
+                        "Please try again."
+                        }`
+                    );
+                }
+                ToastAndroid.show(
+                    "Stream ended - Winner announced!",
+                    ToastAndroid.SHORT
+                );
+
+                setBiddingWinner(true);
+
+                setTimeout(async () => {
+                    setBiddingWinner(false);
+                    setWinnerDetails(null);
+                    setEndingStream(false);
+                    await leave();
+                    navigation.navigate("Home");
+                }, 3000);
+            } else {
+                ToastAndroid.show(
+                    "Stream ended - No bids received",
+                    ToastAndroid.SHORT
+                );
+
+                setTimeout(async () => {
+                    setEndingStream(false);
+                    await leave();
+                    navigation.navigate("Home");
+                }, 1500);
             }
         } catch (error) {
-            ToastAndroid.show("Error ending stream: " + error.message, ToastAndroid.LONG);
+            ToastAndroid.show(
+                "Error ending stream: " + error.message,
+                ToastAndroid.LONG
+            );
             setEndingStream(false);
         }
     };
@@ -730,7 +886,7 @@ const CreatorStreamScreen = ({ route }) => {
                 streamId: streamId,
                 read: false,
             });
-            console.log("✅ Winner notification sent");
+            // console.log("✅ Winner notification sent");
         } catch (error) {
             console.error('Notification error:', error);
         }
@@ -815,14 +971,14 @@ const CreatorStreamScreen = ({ route }) => {
                             return;
                         }
 
-                        if (isHost && isActualCreator()) {
+                        if (Host && isActualCreator()) {
                             // ✅ Host manually ends stream - call proper end stream logic
                             await performEndStream();
                         } else if (biddings.length > 0 && streamInfo) {
                             // ✅ Winner exists: Create shipment and mark auction completed
                             const winningBid = biddings[0];
                             await createShipmentForWinner(streamInfo, winningBid);
-                            console.log('winner', winnerDetails)
+                            // console.log('winner', winnerDetails)
                             // Store winner details for display
                             setWinnerDetails({
                                 winnerId: winningBid.bidderId._id,
@@ -842,7 +998,7 @@ const CreatorStreamScreen = ({ route }) => {
                                     winnerId: winningBid.bidderId._id,
                                     winningBidAmount: winningBid.bidAmount
                                 });
-                                console.log("✅ Auction marked as COMPLETED");
+                                // console.log("✅ Auction marked as COMPLETED");
                             } catch (updateError) {
                                 console.log("Note: Backend update may not be supported. Auction will be marked completed on next fetch.");
                             }
@@ -891,7 +1047,7 @@ const CreatorStreamScreen = ({ route }) => {
 
             // Show warning when entering sudden death zone
             if (inSuddenDeathZone && remainingSecsForCheck === suddenDeathThreshold) {
-                console.log("🔥 SUDDEN DEATH ZONE ACTIVATED - Timer is in final", suddenDeathThreshold, "seconds");
+                // console.log("🔥 SUDDEN DEATH ZONE ACTIVATED - Timer is in final", suddenDeathThreshold, "seconds");
                 ToastAndroid.show(`🔥 SUDDEN DEATH! Last ${suddenDeathThreshold}s - Keep bidding to extend!`, ToastAndroid.LONG);
             }
 
@@ -908,7 +1064,7 @@ const CreatorStreamScreen = ({ route }) => {
         return () => {
             clearInterval(interval);
         };
-    }, [endTime, biddings, streamInfo, isHost, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
+    }, [endTime, biddings, streamInfo, isHost, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
 
     useEffect(() => {
         socketRef.current = io("YOUR_BACKEND_URL");
@@ -975,7 +1131,7 @@ const CreatorStreamScreen = ({ route }) => {
             <KeyboardAwareScrollView contentContainerStyle={styles.container} enableOnAndroid={true}>
 
 
-                {isJoined && isHost && (
+                {isJoined && Host && (
                     <RtcSurfaceView
                         canvas={{
                             uid: localUid,
@@ -987,7 +1143,7 @@ const CreatorStreamScreen = ({ route }) => {
                     />
                 )}
 
-                {isHost && isJoined && remoteUids?.map(uid => (
+                {Host && isJoined && remoteUids?.map(uid => (
                     <RtcSurfaceView
                         key={uid}
                         canvas={{ uid, renderMode: 1 }}
@@ -996,7 +1152,7 @@ const CreatorStreamScreen = ({ route }) => {
                     />
                 ))}
 
-                {!isHost && isJoined && remoteUids.length > 0 && remoteUids.map((uid, index) => (
+                {!Host && isJoined && remoteUids.length > 0 && remoteUids.map((uid, index) => (
                     <RtcSurfaceView key={uid} canvas={{ uid, renderMode: 1 }} connection={{ channelId: channelName, localUid }} style={index == 0 ? styles.remoteVideo2 : styles?.remoteVideo} />
                 ))}
 
@@ -1135,10 +1291,10 @@ const CreatorStreamScreen = ({ route }) => {
                 }
 
                 {/* DISABLE THAT  */}
-                <View style={{ position: 'absolute', bottom: isHost ? 230 : 250, right: 20, gap: 15, alignItems: "center" }}>
+                <View style={{ position: 'absolute', bottom: Host ? 130 : 150, right: 10, gap: 15, alignItems: "center" }}>
 
                     {
-                        isHost && (
+                        Host && (
                             <TouchableOpacity onPress={toggleMic} style={{ ...styles.commanStyle, width: 40, height: 40, justifyContent: "center", alignItems: "center" }}>
                                 {
                                     isMicMuted ?
@@ -1151,13 +1307,14 @@ const CreatorStreamScreen = ({ route }) => {
                     }
 
                     {
-                        isHost && (
+                        Host && (
 
                             <TouchableOpacity onPress={() => setShowUserInvitation(true)} style={{ ...styles.commanStyle, width: 40, height: 40, justifyContent: "center", alignItems: "center" }}>
                                 <AntDesign name="plus" size={20} color="white" />
                             </TouchableOpacity>
                         )
                     }
+
                     <TouchableOpacity onPress={() => setHeart(!heart)} style={{ ...styles.commanStyle, width: 40, height: 40, justifyContent: "center", alignItems: "center" }}>
                         <AntDesign name="heart" size={20} color={heart ? "#FF3729" : "#fff"} />
                     </TouchableOpacity>
@@ -1165,7 +1322,7 @@ const CreatorStreamScreen = ({ route }) => {
                         <Feather name="message-circle" size={20} color="white" />
                     </TouchableOpacity>
                     {
-                        isHost &&
+                        Host &&
                         <TouchableOpacity onPress={switchCamera} style={{ ...styles.commanStyle, width: 40, height: 40, justifyContent: "center", alignItems: "center" }}>
                             <Entypo name="camera" size={20} color="#fff" />
                         </TouchableOpacity>
@@ -1190,7 +1347,8 @@ const CreatorStreamScreen = ({ route }) => {
                             backgroundColor: (!isLiveAuction || (endTime && Date.now() >= endTime) || isSuddenDeathZone) ? "gray" : "orange",
                             paddingHorizontal: 10,
                             paddingVertical: 5,
-                            borderRadius: 100
+                            borderRadius: 100,
+                            zIndex: 10,
                         }}
                     >
                         <Text style={{ color: "white", fontSize: 14 }}>Quick Bid</Text>
