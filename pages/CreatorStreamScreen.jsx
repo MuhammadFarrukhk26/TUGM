@@ -63,7 +63,7 @@ const CreatorStreamScreen = ({ route }) => {
     const [showGifts, setshowGifts] = useState(false)
     const [wallet, setwallet] = useState(false)
     const [showBid, setshowBid] = useState(false);
-    const [Host, setHost] = useState(false);
+    const [Host, setHost] = useState(isHost || false);
 
     const [showMessages, setshowMessages] = useState(true);
 
@@ -90,6 +90,7 @@ const CreatorStreamScreen = ({ route }) => {
         const engine = createAgoraRtcEngine();
         agoraEngineRef.current = engine;
         engine.initialize({ appId });
+        console.log(Host, 'host status')
         if (Host) {
             engine.enableVideo();
             engine.startPreview();
@@ -497,7 +498,7 @@ const CreatorStreamScreen = ({ route }) => {
                         zip: "90001",
                         country: "USA",
 
-                        product: proddata|| [],
+                        product: proddata || [],
 
                         // auctionMode: true,
                         // streamId: streamId,
@@ -1803,7 +1804,7 @@ const styles = StyleSheet.create({
         left: 0,
         width: "100%",
         height: "100%",
-        zIndex: 0,
+        zIndex: 1,
     },
     remoteVideo: {
         position: "absolute",
@@ -1822,7 +1823,7 @@ const styles = StyleSheet.create({
         left: 0,
         width: "100%",
         height: "100%",
-        zIndex: 0,
+        zIndex: 1,
     },
     controls: {
         position: "absolute",
