@@ -91,7 +91,7 @@ const CreatorStreamScreen = ({ route }) => {
         agoraEngineRef.current = engine;
         engine.initialize({ appId });
         console.log(Host, 'host status')
-        if (Host) {
+        if (Host || isHost) {
             engine.enableVideo();
             engine.startPreview();
         }
@@ -213,7 +213,10 @@ const CreatorStreamScreen = ({ route }) => {
             let userId = await AsyncStorage.getItem('userId');
             // console.log('ID', info?.creatorId?._id, 'Uid', userId)
             if (info?.creatorId?._id === userId) {
+                console.log('You are the host of this stream');
                 setHost(true)
+                // agoraEngineRef.current?.enableVideo()
+                agoraEngineRef.current?.startPreview()
             }
             // console.log(info)
             if (info.mode === "AUCTION" && info.endTime) {
@@ -398,7 +401,7 @@ const CreatorStreamScreen = ({ route }) => {
                         zip: "90001",
                         country: "USA",
 
-                        product: [updatedProducts] || [],
+                        product: updatedProducts || [],
 
                         // auctionMode: true,
                         // streamId: streamId,
@@ -497,8 +500,9 @@ const CreatorStreamScreen = ({ route }) => {
         try {
             await axios.post(`${config.baseUrl}/stream/message`, { streamId: streamId, userId: uId, message })
             setMessage("");
+            fetchMessages();
         } catch (error) {
-            console.log(error, 'erro in handle message send');
+            console.log(error, 'error in handle message send');
         }
     };
     const fetchMessages = async () => {
@@ -805,6 +809,9 @@ const CreatorStreamScreen = ({ route }) => {
         const init = async () => {
             await fetchToken()
             agoraEngineRef.current?.enableVideo()
+            if(Host || isHost){
+                agoraEngineRef.current?.startPreview()
+            }
         };
         init();
 
@@ -832,20 +839,20 @@ const CreatorStreamScreen = ({ route }) => {
         };
     }, []);
 
-    useEffect(() => {
-        if (!isLiveAuction || !streamInfo) {
-            return;
-        }
-        const pollInterval = setInterval(() => {
-            // console.log("🔄 Poll: Refreshing biddings...");
-            // fetchBiddings();
-        }, 2000); // Poll every 2 seconds
+    // useEffect(() => {
+    //     if (!isLiveAuction || !streamInfo) {
+    //         return;
+    //     }
+    //     const pollInterval = setInterval(() => {
+    //         // console.log("🔄 Poll: Refreshing biddings...");
+    //         // fetchBiddings();
+    //     }, 2000); // Poll every 2 seconds
 
-        return () => {
-            // console.log("⏹️ Stopping biddings poll interval");
-            clearInterval(pollInterval);
-        };
-    }, [isLiveAuction, streamInfo]);
+    //     return () => {
+    //         // console.log("⏹️ Stopping biddings poll interval");
+    //         clearInterval(pollInterval);
+    //     };
+    // }, [isLiveAuction, streamInfo]);
 
 
     useEffect(() => {
@@ -968,7 +975,7 @@ const CreatorStreamScreen = ({ route }) => {
         return () => {
             clearInterval(interval);
         };
-    }, [endTime, biddings, streamInfo, isHost, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
+    }, [endTime, biddings, streamInfo, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
 
     useEffect(() => {
         socketRef.current = io("YOUR_BACKEND_URL");
@@ -1388,25 +1395,7 @@ const CreatorStreamScreen = ({ route }) => {
                                                 }}
                                             >
                                                 <Text style={{ color: "#fff", fontSize: 15 }}>${item.price}</Text>
-                                                {/* <View
-                                                style={{
-                                                    flexDirection: "row",
-                                                    gap: 5,
-                                                    alignItems: "center",
-                                                }}
-                                            >
-                                                <Pressable onPress={() => setQuantity(quantity + 1)}>
-                                                    <AntDesign name="plus" size={15} color="#fff" />
-                                                </Pressable>
-                                                <Text style={{ color: "#fff", fontSize: 15 }}>{quantity}</Text>
-                                                <Pressable
-                                                    onPress={() => {
-                                                        if (quantity > 1) setQuantity(quantity - 1);
-                                                    }}
-                                                >
-                                                    <AntDesign name="minus" size={15} color="#fff" />
-                                                </Pressable>
-                                            </View> */}
+                                          
                                             </View>
                                         </View>
                                     </View>
@@ -1426,21 +1415,7 @@ const CreatorStreamScreen = ({ route }) => {
                                                 ${(item.price * quantity).toFixed(2)}
                                             </Text>
                                         </View>
-                                        {/* 
-                                        <TouchableOpacity
-                                            onPress={() => {
-                                                handleAddToCard(item);
-                                                setshowShirts(false);
-                                            }}
-                                            style={{
-                                                backgroundColor: "#fff",
-                                                borderRadius: 20,
-                                                paddingHorizontal: 15,
-                                                paddingVertical: 5,
-                                            }}
-                                        >
-                                            <Text style={{ color: "#000" }}>Add to cart</Text>
-                                        </TouchableOpacity> */}
+                                     
                                     </View>
                                 </View>
                             ))}
@@ -1571,7 +1546,7 @@ const CreatorStreamScreen = ({ route }) => {
                 }
                 {
                     biddingWinner &&
-                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", zIndex: 1, width: "90%", borderRadius: 30, zIndex: 2 }}>
+                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000",  width: "90%", borderRadius: 30, zIndex: 2 }}>
                         <View style={{ justifyContent: "center", alignItems: "center", flexDirection: "row", marginTop: 5 }}>
                             <Text style={{ color: "#fff", fontSize: 30 }}>Winner</Text>
                         </View>
@@ -1591,7 +1566,7 @@ const CreatorStreamScreen = ({ route }) => {
                         </View>
                     </View>
                 }
-                <View style={{ position: "absolute", bottom: keyboardOpen ? 400 : 40, left: 10, paddingVertical: 10, maxHeight: "80%", zIndex: 10, width: "80%" }}>
+                <View style={{ position: "absolute", bottom: keyboardOpen ? 300 : 40, left: 10, paddingVertical: 10, maxHeight: "80%", zIndex: 10, width: "80%" }}>
                     {/* COMMENTS  */}
                     {
                         showMessages && (
@@ -1654,9 +1629,6 @@ const CreatorStreamScreen = ({ route }) => {
                             </TouchableOpacity>
                         </View>
 
-                        {/* <Pressable onPress={() => { setshowShirts(true) }} style={styles.commanStyle}>
-                            <Ionicons name="cart-outline" size={20} color="#fff" />
-                        </Pressable> */}
                         <Pressable
                             onPress={() => {
                                 if (isLiveAuction) {

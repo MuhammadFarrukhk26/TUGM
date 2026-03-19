@@ -318,7 +318,7 @@ const HomeScreen = () => {
 
                 {
                     streams?.length > 0 && (
-                        <TouchableOpacity onPress={() => { navigation.navigate("CreatorStream", { streamId: streams[0]?.streamId, isHost: false }) }} style={styles.liveContainer}>
+                        <TouchableOpacity onPress={() => { navigation.navigate("CreatorStream", { streamId: streams[0]?.streamId }) }} style={styles.liveContainer}>
                             <Image source={{ uri: streams[0]?.coverImage }} style={styles.liveImage} />
                             <View style={styles.liveInfo}>
                                 <View style={styles.liveUserInfo}>
