@@ -150,7 +150,7 @@ const convertTimeToMinutes = (timeString) => {
 
         const biddingDuration = convertTimeToMinutes(selectedTime);
 
-        if (!data.startingBid || isNaN(data.startingBid)) {
+        if (!data.startingBid || isNaN(data.startingBid) || Number(data.startingBid) <= 0) {
             ToastAndroid.show('Valid Starting Bid Required!', ToastAndroid.SHORT);
             return;
         }
@@ -171,6 +171,9 @@ const convertTimeToMinutes = (timeString) => {
         formData.append("creatorId", creatorId);
         formData.append("biddingDuration", biddingDuration);
         formData.append("duration", biddingDuration);
+        formData.append("startTime", new Date().toISOString());
+        formData.append("endTime", new Date(Date.now() + biddingDuration * 1000).toISOString());
+        formData.append("status", "LIVE");
         formData.append("mode", selectedTab?.toUpperCase());
         formData.append("suddenDeath", isSuddenDeathEnabled ? true : false);
         data.productId.forEach((id) => {
@@ -199,12 +202,30 @@ const convertTimeToMinutes = (timeString) => {
             );
 
             if (res?.data?.data) {
-                ToastAndroid.show('Stream Created!', ToastAndroid.SHORT);
+                const stream = res.data.data;
 
-                await AsyncStorage.setItem('streamId', res.data.data._id);
+                ToastAndroid.show('Stream Created!', ToastAndroid.SHORT);
+                await AsyncStorage.setItem('streamId', stream._id);
+
+                // Create auction record if this is auction mode.
+                if (selectedTab?.toUpperCase() === "AUCTION") {
+                    try {
+                        // await 
+                         const res = axios.post(`${config.baseUrl}/auction/create`, {
+                            streamId: stream._id,
+                            productId: data.productId[0] || data.productId,
+                            startingBid: Number(data.startingBid),
+                            duration: biddingDuration,
+                            suddenDeath: isSuddenDeathEnabled,
+                        });
+                        console.log(res)
+                    } catch (auctionError) {
+                        console.log("Auction create error:", auctionError?.response?.data || auctionError.message);
+                    }
+                }
 
                 navigation.replace("CreatorStream", {
-                    streamId: res.data.data.streamId,
+                    streamId: stream.streamId,
                     isHost: true,
                 });
             }
@@ -253,7 +274,7 @@ const convertTimeToMinutes = (timeString) => {
                     <Text style={{ color: "#fff" }}>{data?.image ? "Image Picked" : "Pick Stream Cover Image"}</Text>
                 </TouchableOpacity>
 
-                <TextInput defaultValue='1' onChangeText={(text) => setData({ ...data, startingBid: text })} keyboardType='numeric' placeholderTextColor={"grey"} placeholder='Starting Bid' style={{ borderRadius: 5, paddingVertical: 7, paddingHorizontal: 10, marginVertical: 10, backgroundColor: "#1A1A1A", color: "white" }} />
+                <TextInput value={String(data.startingBid)} onChangeText={(text) => setData({ ...data, startingBid: text })} keyboardType='numeric' placeholderTextColor={"grey"} placeholder='Starting Bid' style={{ borderRadius: 5, paddingVertical: 7, paddingHorizontal: 10, marginVertical: 10, backgroundColor: "#1A1A1A", color: "white" }} />
                 <View style={styles.timeContainer}>
                     <Text style={styles.inputLabel}>Time</Text>
                     <ScrollView showsHorizontalScrollIndicator={false} horizontal contentContainerStyle={styles.timeOptionsContainer}>

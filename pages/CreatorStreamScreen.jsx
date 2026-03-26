@@ -38,6 +38,7 @@ const CreatorStreamScreen = ({ route }) => {
     const [isFrontCamera, setIsFrontCamera] = useState(true);
     const [data, setData] = useState({});
     const [streamInfo, setStreamInfo] = useState(null)
+    const [isStreamLive, setIsStreamLive] = useState(false);
     const [biddings, setBiddings] = useState([])
     const [fadeAnim] = useState(new Animated.Value(0));
     const [gift, setGift] = useState(null);
@@ -81,6 +82,13 @@ const CreatorStreamScreen = ({ route }) => {
     const [biddingWinner, setBiddingWinner] = useState(false);
     const [winnerDetails, setWinnerDetails] = useState(null);
     const [endingStream, setEndingStream] = useState(false);
+    const [showInitiateAuctionModal, setShowInitiateAuctionModal] = useState(false);
+    const [selectedProductForAuction, setSelectedProductForAuction] = useState(null);
+    const [auctionFormData, setAuctionFormData] = useState({
+        startingBid: '',
+        duration: '10',
+        suddenDeathEnabled: false
+    });
     useLiveStreamSocket(streamId, setComments);
     const setupVideoSDKEngine = async () => {
         if (Platform.OS === "android") {
@@ -209,6 +217,7 @@ const CreatorStreamScreen = ({ route }) => {
             const info = res.data.data;
             // console.log('stream info', info)
             setStreamInfo(info);
+            setIsStreamLive(info?.status === 'LIVE');
             setCurrentBid(info.currentBid || info.startingBid);
             let userId = await AsyncStorage.getItem('userId');
             // console.log('ID', info?.creatorId?._id, 'Uid', userId)
@@ -596,8 +605,8 @@ const CreatorStreamScreen = ({ route }) => {
 
     const handleBid = async (quickBid = null) => {
         Keyboard.dismiss();
-        if (streamInfo?.status !== "LIVE") {
-            Alert.alert("Auction Closed", "This auction has ended.");
+        if (!isStreamLive) {
+            Alert.alert("Auction Closed", "This stream is not live.");
             return;
         }
         if (endTime && Date.now() >= endTime) {
@@ -746,6 +755,65 @@ const CreatorStreamScreen = ({ route }) => {
         }
     }
 
+    const handleInitiateAuction = (product) => {
+        setSelectedProductForAuction(product);
+        setAuctionFormData({
+            startingBid: product.price.toString(),
+            duration: '10',
+            suddenDeathEnabled: false
+        });
+        setShowInitiateAuctionModal(true);
+    };
+
+    const handleSubmitAuction = async () => {
+        if (!auctionFormData.startingBid || isNaN(auctionFormData.startingBid) || Number(auctionFormData.startingBid) <= 0) {
+            Alert.alert('Invalid Bid', 'Please enter a valid starting bid amount');
+            return;
+        }
+
+        if (!selectedProductForAuction) {
+            Alert.alert('Error', 'No product selected');
+            return;
+        }
+
+        try {
+            const biddingDuration = parseInt(auctionFormData.duration);
+            const startTime = new Date();
+            const endTime = new Date(startTime.getTime() + biddingDuration * 1000);
+
+            const auctionData = {
+                streamId: streamInfo._id,
+                productId: selectedProductForAuction._id,
+                startingBid: Number(auctionFormData.startingBid),
+                biddingDuration: biddingDuration,
+                startTime: startTime.toISOString(),
+                endTime: endTime.toISOString(),
+                suddenDeath: auctionFormData.suddenDeathEnabled,
+                mode: 'AUCTION'
+            };
+
+            const res = await axios.post(`${config.baseUrl}/stream/start-auction`, auctionData);
+
+            if (res?.data?.success) {
+                ToastAndroid.show('Auction Started Successfully!', ToastAndroid.LONG);
+                setShowInitiateAuctionModal(false);
+                setSelectedProductForAuction(null);
+                setAuctionFormData({
+                    startingBid: '',
+                    duration: '10',
+                    suddenDeathEnabled: false
+                });
+                // Refresh stream info to show updated auction status
+                fetchStreamInfo();
+            } else {
+                Alert.alert('Error', res?.data?.message || 'Failed to start auction');
+            }
+        } catch (error) {
+            console.error('Error starting auction:', error);
+            Alert.alert('Error', 'Failed to start auction. Please try again.');
+        }
+    };
+
     // ✨ AUTO SHIPMENT CREATION FOR AUCTION WINNERS
     const createShipmentForWinner = async (stream, winningBid) => {
         try {
@@ -882,10 +950,8 @@ const CreatorStreamScreen = ({ route }) => {
                             return;
                         }
 
-                        if (Host && isActualCreator()) {
-                            // ✅ Host manually ends stream - call proper end stream logic
-                            await performEndStream();
-                        } else if (biddings.length > 0 && streamInfo) {
+                                // Host ending stream is now manual only. Auto-close should not call performEndStream().
+                        if (biddings.length > 0 && streamInfo) {
                             // ✅ Winner exists: Create shipment and mark auction completed
                             const winningBid = biddings[0];
                             await createShipmentForWinner(streamInfo, winningBid);
@@ -1035,7 +1101,7 @@ const CreatorStreamScreen = ({ route }) => {
     // const currentBid = biddings.length > 0 ? biddings[0].bidAmount : 0
 
     const isAuction = streamInfo?.mode === "AUCTION";
-    const isLiveAuction = isAuction && streamInfo?.status === "LIVE";
+    const isLiveAuction = isAuction && isStreamLive;
     const isAuctionEnded = isAuction && (streamInfo?.status === "COMPLETED" || timeLeft === "00:00");
     return (
         <View style={{ flex: 1 }}>
@@ -1074,8 +1140,8 @@ const CreatorStreamScreen = ({ route }) => {
                                 <Pressable onPress={() => { navigation.navigate("profile_details", { userId: streamInfo?.creatorId?._id }) }} style={{ flexDirection: "row", gap: 6 }}>
                                     <View style={{ marginLeft: 5 }}>
                                         <Image source={{ uri: streamInfo?.creatorId?.profile }} style={{ width: 30, height: 30, borderRadius: 20, borderWidth: 1, borderColor: "#FF3729" }} />
-                                        <View style={{ backgroundColor: "#FF3729", borderRadius: 100, display: "flex", justifyContent: "center", alignItems: "center" }}>
-                                            <Text style={{ color: "#fff", fontSize: 7 }}>Live</Text>
+                                        <View style={{ backgroundColor: (isStreamLive ? "#FF3729" : "#999"), borderRadius: 100, display: "flex", justifyContent: "center", alignItems: "center", paddingHorizontal: 6 }}>
+                                            <Text style={{ color: "#fff", fontSize: 7 }}>{isStreamLive ? "LIVE" : streamInfo?.status || "OFFLINE"}</Text>
                                         </View>
                                     </View>
                                     <View>
@@ -1566,6 +1632,91 @@ const CreatorStreamScreen = ({ route }) => {
                         </View>
                     </View>
                 }
+                {
+                    showInitiateAuctionModal &&
+                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", width: "90%", borderRadius: 30, zIndex: 2 }}>
+                        <View style={{ justifyContent: "center", alignItems: "center", flexDirection: "row", marginTop: 5 }}>
+                            <Text style={{ color: "#fff", fontSize: 24, fontWeight: 'bold' }}>Start Auction</Text>
+                        </View>
+                        {selectedProductForAuction && (
+                            <View style={{ alignItems: "center", marginVertical: 15 }}>
+                                <Image source={{ uri: selectedProductForAuction?.images?.[0] || "https://via.placeholder.com/150" }} style={{ width: 60, height: 60, borderRadius: 10, marginBottom: 10 }} />
+                                <Text style={{ color: "#fff", fontSize: 16, textAlign: 'center' }}>{selectedProductForAuction?.title}</Text>
+                                <Text style={{ color: "#C4C4C4", fontSize: 14 }}>Price: ${selectedProductForAuction?.price}</Text>
+                            </View>
+                        )}
+                        <View style={{ marginTop: 10 }}>
+                            <Text style={{ color: "#fff", fontSize: 16, marginBottom: 5 }}>Starting Bid ($)</Text>
+                            <TextInput
+                                keyboardType="numeric"
+                                value={auctionFormData.startingBid}
+                                onChangeText={(text) => setAuctionFormData({...auctionFormData, startingBid: text})}
+                                placeholder="Enter starting bid"
+                                placeholderTextColor="#999"
+                                style={{
+                                    backgroundColor: "#D9D9D91F",
+                                    height: 50,
+                                    paddingHorizontal: 15,
+                                    borderWidth: 1,
+                                    borderColor: "#747474",
+                                    borderRadius: 10,
+                                    color: "white",
+                                    fontSize: 16,
+                                    marginBottom: 15
+                                }}
+                            />
+                            <Text style={{ color: "#fff", fontSize: 16, marginBottom: 5 }}>Duration (seconds)</Text>
+                            <TextInput
+                                keyboardType="numeric"
+                                value={auctionFormData.duration}
+                                onChangeText={(text) => setAuctionFormData({...auctionFormData, duration: text})}
+                                placeholder="Enter duration in seconds"
+                                placeholderTextColor="#999"
+                                style={{
+                                    backgroundColor: "#D9D9D91F",
+                                    height: 50,
+                                    paddingHorizontal: 15,
+                                    borderWidth: 1,
+                                    borderColor: "#747474",
+                                    borderRadius: 10,
+                                    color: "white",
+                                    fontSize: 16,
+                                    marginBottom: 15
+                                }}
+                            />
+                            <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
+                                <TouchableOpacity
+                                    onPress={() => setAuctionFormData({...auctionFormData, suddenDeathEnabled: !auctionFormData.suddenDeathEnabled})}
+                                    style={{
+                                        width: 20,
+                                        height: 20,
+                                        borderRadius: 10,
+                                        borderWidth: 2,
+                                        borderColor: "#F78E1B",
+                                        backgroundColor: auctionFormData.suddenDeathEnabled ? "#F78E1B" : "transparent",
+                                        marginRight: 10,
+                                        justifyContent: 'center',
+                                        alignItems: 'center'
+                                    }}
+                                >
+                                    {auctionFormData.suddenDeathEnabled && <Text style={{ color: "#fff", fontSize: 12 }}>✓</Text>}
+                                </TouchableOpacity>
+                                <Text style={{ color: "#fff", fontSize: 14 }}>Enable Sudden Death</Text>
+                            </View>
+                        </View>
+                        <View style={{ flexDirection: "row", marginTop: 20 }}>
+                            <TouchableOpacity onPress={() => {
+                                setShowInitiateAuctionModal(false);
+                                setSelectedProductForAuction(null);
+                            }} style={styles.cancelButton}>
+                                <Text style={styles.cancelText}>Cancel</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={handleSubmitAuction} style={styles.startAuctionButton}>
+                                <Text style={styles.startAuctionText}>Start Auction</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                }
                 <View style={{ position: "absolute", bottom: keyboardOpen ? 300 : 40, left: 10, paddingVertical: 10, maxHeight: "80%", zIndex: 10, width: "80%" }}>
                     {/* COMMENTS  */}
                     {
@@ -1604,9 +1755,21 @@ const CreatorStreamScreen = ({ route }) => {
                                                     <Text style={{ color: "white" }}>$ {i?.price}</Text>
                                                 </View>
                                             </View>
-                                            {/* <Pressable onPress={() => handleAddToCard(i)}>
-                                                <Feather name="plus-circle" size={25} color="#fff" />
-                                            </Pressable> */}
+                                            {Host && (
+                                                <Pressable 
+                                                    onPress={() => handleInitiateAuction(i)}
+                                                    style={{ 
+                                                        backgroundColor: '#F78E1B', 
+                                                        paddingHorizontal: 12, 
+                                                        paddingVertical: 6, 
+                                                        borderRadius: 15,
+                                                        justifyContent: 'center',
+                                                        alignItems: 'center'
+                                                    }}
+                                                >
+                                                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: 'bold' }}>Start Auction</Text>
+                                                </Pressable>
+                                            )}
                                         </View>
                                     ))
                                 }
