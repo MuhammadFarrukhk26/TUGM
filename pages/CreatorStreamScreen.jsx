@@ -1,5 +1,5 @@
 import React, { useEffect, useRef, useState } from "react";
-import { Platform, View, StyleSheet, TouchableOpacity, Text, Animated, Modal, FlatList, Image, Keyboard, ToastAndroid, TextInput, Pressable, ScrollView, Alert, ActivityIndicator } from "react-native";
+import { Platform, View, StyleSheet, TouchableOpacity, Text, Animated, Modal, FlatList, Image, Keyboard, ToastAndroid, TextInput, Pressable, ScrollView, Alert, ActivityIndicator, Dimensions } from "react-native";
 import { createAgoraRtcEngine, ChannelProfileType, ClientRoleType, AudienceLatencyLevelType, RtcSurfaceView, } from "react-native-agora";
 import config from "../config";
 import Entypo from 'react-native-vector-icons/Entypo';
@@ -21,9 +21,11 @@ import giftImg from '../assets/gift.png'
 import dollarImg from '../assets/dollar.png'
 import TimerModal from "../components/TimerModal";
 import io from "socket.io-client";
+import UserInvitationModal from "../components/UserInviteModal";
 
 const appId = config.appId;
 const localUid = 0;
+const { width, height } = Dimensions.get("window");
 
 const CreatorStreamScreen = ({ route }) => {
     const { streamId, isHost, coHost = false } = route.params;
@@ -792,7 +794,7 @@ const CreatorStreamScreen = ({ route }) => {
                 mode: 'AUCTION'
             };
 
-            const res = await axios.post(`${config.baseUrl}/stream/start-auction`, auctionData);
+            const res = await axios.post(`${config.baseUrl}/auction/create`, auctionData);
 
             if (res?.data?.success) {
                 ToastAndroid.show('Auction Started Successfully!', ToastAndroid.LONG);
@@ -877,7 +879,7 @@ const CreatorStreamScreen = ({ route }) => {
         const init = async () => {
             await fetchToken()
             agoraEngineRef.current?.enableVideo()
-            if(Host || isHost){
+            if (Host || isHost) {
                 agoraEngineRef.current?.startPreview()
             }
         };
@@ -907,22 +909,6 @@ const CreatorStreamScreen = ({ route }) => {
         };
     }, []);
 
-    // useEffect(() => {
-    //     if (!isLiveAuction || !streamInfo) {
-    //         return;
-    //     }
-    //     const pollInterval = setInterval(() => {
-    //         // console.log("🔄 Poll: Refreshing biddings...");
-    //         // fetchBiddings();
-    //     }, 2000); // Poll every 2 seconds
-
-    //     return () => {
-    //         // console.log("⏹️ Stopping biddings poll interval");
-    //         clearInterval(pollInterval);
-    //     };
-    // }, [isLiveAuction, streamInfo]);
-
-
     useEffect(() => {
         // 🛑 Don't start timer if stream already ended
         if (!endTime || isAuctionEnded) return;
@@ -950,7 +936,7 @@ const CreatorStreamScreen = ({ route }) => {
                             return;
                         }
 
-                                // Host ending stream is now manual only. Auto-close should not call performEndStream().
+                        // Host ending stream is now manual only. Auto-close should not call performEndStream().
                         if (biddings.length > 0 && streamInfo) {
                             // ✅ Winner exists: Create shipment and mark auction completed
                             const winningBid = biddings[0];
@@ -1103,6 +1089,65 @@ const CreatorStreamScreen = ({ route }) => {
     const isAuction = streamInfo?.mode === "AUCTION";
     const isLiveAuction = isAuction && isStreamLive;
     const isAuctionEnded = isAuction && (streamInfo?.status === "COMPLETED" || timeLeft === "00:00");
+    const StreamHeader = ({ streamInfo, isStreamLive, viewerCount, uId, isActualCreator, followCreator, handleEndStream, endingStream, navigation }) => {
+        return (
+            <View style={{ position: "absolute", top: 50, left: "1%", justifyContent: "space-between", alignItems: "center", flexDirection: "row", width: "93%", zIndex: 2 }}>
+                <View style={{ display: "flex", alignItems: "center", gap: 6, flexDirection: "row" }}>
+                    <View style={{ display: "flex", alignItems: "center", gap: 15, flexDirection: "row" }}>
+                        <View style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8, backgroundColor: "#9a9a94", paddingHorizontal: 2, paddingVertical: 2, borderRadius: 40, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
+                            <Pressable
+                                onPress={() => { navigation.navigate("profile_details", { userId: streamInfo?.creatorId?._id }) }}
+                                style={{ flexDirection: "row", gap: 4, alignItems: "center", paddingHorizontal: 5, paddingVertical: 3 }}>
+                                <View style={{ marginLeft: 2, }}>
+                                    <Image source={{ uri: streamInfo?.creatorId?.profile }} style={{ width: 35, height: 35, borderRadius: 20, borderWidth: 1, borderColor: "#FF3729" }} />
+                                    <View style={{ backgroundColor: (isStreamLive ? "#FF3729" : "#999"), borderRadius: 100, display: "flex", justifyContent: "center", alignItems: "center", paddingHorizontal: 6 }}>
+                                        <Text style={{ color: "#fff", fontSize: 8 }}>{isStreamLive ? "LIVE" : streamInfo?.status || "OFFLINE"}</Text>
+                                    </View>
+                                </View>
+                                <View>
+                                    <Text style={{ color: "#fff", fontSize: 14, fontWeight: "600" }}>{streamInfo?.creatorId?.username}</Text>
+                                    <Text style={{ color: "#fff", fontSize: 10 }}>{streamInfo?.creatorId?.followers ?? 0} Followers</Text>
+                                </View>
+                                <TouchableOpacity onPress={() => { followCreator(streamInfo?.creatorId?._id, streamInfo?.creatorId?.followedBy) }} style={{ backgroundColor: "#FF3729", justifyContent: "center", alignItems: "center", borderRadius: 100, paddingHorizontal: 10, paddingVertical: 10, marginLeft: 5 }}>
+                                    <Text style={{ color: "#fff", fontSize: 13 }}>{streamInfo?.creatorId?.followedBy?.includes(uId) ? "Following" : "Follow"}</Text>
+                                </TouchableOpacity>
+                            </Pressable>
+                        </View>
+                    </View>
+                    <TouchableOpacity style={{ shadowColor: "white", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8, backgroundColor: "#9a9a94", paddingHorizontal: 6, paddingVertical: 4, borderRadius: 40, display: "flex", alignItems: "center", flexDirection: "row", gap: 5 }}>
+                        <AntDesign name="eye" size={24} color="white" />
+                        <Text style={{ color: "#fff" }}>{viewerCount == 0 ? 1 : viewerCount}</Text>
+                    </TouchableOpacity>
+                </View>
+                {isActualCreator() && (
+                    <TouchableOpacity
+                        onPress={handleEndStream}
+                        disabled={endingStream}
+                        style={{
+                            backgroundColor: endingStream ? "#666" : "gray",
+                            padding: 5,
+                            marginLeft: 5,
+                            borderRadius: 100,
+                            flexDirection: "row",
+                            alignItems: "center",
+                            zIndex: 100,
+                            opacity: endingStream ? 0.6 : 1
+                        }}
+                    >
+                        {endingStream ? (
+                            <>
+                                <ActivityIndicator size="small" color="#fff" style={{ marginRight: 5 }} />
+                                <Text style={{ color: "#fff", fontSize: 12 }}>Ending...</Text>
+                            </>
+                        ) : (
+                            <Entypo name='cross' size={22} color={"#fff"} />
+                        )}
+                    </TouchableOpacity>
+                )}
+            </View>
+        )
+    }
+
     return (
         <View style={{ flex: 1 }}>
             <KeyboardAwareScrollView contentContainerStyle={styles.container} enableOnAndroid={true}>
@@ -1133,59 +1178,7 @@ const CreatorStreamScreen = ({ route }) => {
                     <RtcSurfaceView key={uid} canvas={{ uid, renderMode: 1 }} connection={{ channelId: channelName, localUid }} style={index == 0 ? styles.remoteVideo2 : styles?.remoteVideo} />
                 ))}
 
-                <View style={{ position: "absolute", top: 50, left: "2%", justifyContent: "space-between", alignItems: "center", flexDirection: "row", width: "90%", zIndex: 2 }}>
-                    <View style={{ display: "flex", alignItems: "center", gap: 10, flexDirection: "row" }}>
-                        <View style={{ display: "flex", alignItems: "center", gap: 15, flexDirection: "row" }}>
-                            <View style={{ shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8, backgroundColor: "#9a9a94", paddingHorizontal: 5, paddingVertical: 5, borderRadius: 40, display: "flex", alignItems: "center", justifyContent: "space-between" }}>
-                                <Pressable onPress={() => { navigation.navigate("profile_details", { userId: streamInfo?.creatorId?._id }) }} style={{ flexDirection: "row", gap: 6 }}>
-                                    <View style={{ marginLeft: 5 }}>
-                                        <Image source={{ uri: streamInfo?.creatorId?.profile }} style={{ width: 30, height: 30, borderRadius: 20, borderWidth: 1, borderColor: "#FF3729" }} />
-                                        <View style={{ backgroundColor: (isStreamLive ? "#FF3729" : "#999"), borderRadius: 100, display: "flex", justifyContent: "center", alignItems: "center", paddingHorizontal: 6 }}>
-                                            <Text style={{ color: "#fff", fontSize: 7 }}>{isStreamLive ? "LIVE" : streamInfo?.status || "OFFLINE"}</Text>
-                                        </View>
-                                    </View>
-                                    <View>
-                                        <Text style={{ color: "#fff", fontSize: 15, fontWeight: "600" }}>{streamInfo?.creatorId?.username}</Text>
-                                        <Text style={{ color: "#fff", fontSize: 10 }}>{streamInfo?.creatorId?.followers ?? 0} Followers</Text>
-                                    </View>
-                                    <TouchableOpacity onPress={() => { followCreator(streamInfo?.creatorId?._id, streamInfo?.creatorId?.followedBy) }} style={{ backgroundColor: "#FF3729", justifyContent: "center", alignItems: "center", borderRadius: 100, paddingHorizontal: 15, marginLeft: 10 }}>
-                                        <Text style={{ color: "#fff" }}>{streamInfo?.creatorId?.followedBy?.includes(uId) ? "Following" : "Follow"}</Text>
-                                    </TouchableOpacity>
-                                </Pressable>
-                            </View>
-                        </View>
-                        <TouchableOpacity style={{ shadowColor: "white", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.3, shadowRadius: 4.65, elevation: 8, backgroundColor: "#9a9a94", paddingHorizontal: 6, paddingVertical: 4, borderRadius: 40, display: "flex", alignItems: "center", flexDirection: "row", gap: 5 }}>
-                            <AntDesign name="eye" size={24} color="white" />
-                            <Text style={{ color: "#fff" }}>{viewerCount == 0 ? 1 : viewerCount}</Text>
-                        </TouchableOpacity>
-                    </View>
-                    {isActualCreator() && (
-                        <TouchableOpacity
-                            onPress={handleEndStream}
-                            disabled={endingStream}
-                            style={{
-                                backgroundColor: endingStream ? "#666" : "gray",
-                                padding: 5,
-                                marginLeft: 5,
-                                borderRadius: 100,
-                                flexDirection: "row",
-                                alignItems: "center",
-                                zIndex: 100,
-                                opacity: endingStream ? 0.6 : 1
-                            }}
-                        >
-                            {endingStream ? (
-                                <>
-                                    <ActivityIndicator size="small" color="#fff" style={{ marginRight: 5 }} />
-                                    <Text style={{ color: "#fff", fontSize: 12 }}>Ending...</Text>
-                                </>
-                            ) : (
-                                <Entypo name='cross' size={22} color={"#fff"} />
-                            )}
-                        </TouchableOpacity>
-                    )}
-                </View>
-
+                <StreamHeader streamInfo={streamInfo} isStreamLive={isStreamLive} viewerCount={viewerCount} uId={uId} isActualCreator={isActualCreator} followCreator={followCreator} handleEndStream={handleEndStream} endingStream={endingStream} navigation={navigation} />
                 {/* BIDDING TIMER - Only for stream creator */}
                 {isActualCreator() && (
                     <TouchableOpacity onPress={() => { setTimerSelectionModal(true) }} style={{ position: "absolute", top: 120, left: "5%", width: 80, height: 30, borderWidth: 1, borderColor: "#999893", borderRadius: 26, flexDirection: "row", justifyContent: "center", alignItems: "center", zIndex: 2, backgroundColor: "rgba(0,0,0,0.6)" }}>
@@ -1194,41 +1187,12 @@ const CreatorStreamScreen = ({ route }) => {
                     </TouchableOpacity>
                 )}
 
-
-
-                <Modal animationType="slide" transparent={true} visible={showUserInvitation} onRequestClose={() => setShowUserInvitation(false)}>
-                    <View style={{ flex: 1, backgroundColor: "rgba(0, 0, 0, 0)", justifyContent: "flex-end", zIndex: 2 }}>
-
-                        <View style={{ backgroundColor: "rgba(46, 45, 45, 0.8)", padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: "80%", }}>
-                            <Text style={{ fontSize: 18, fontWeight: "bold", marginBottom: 10, color: "white" }}>Invite Users</Text>
-
-                            {/* User List */}
-                            <FlatList data={allUsers} keyExtractor={(item) => item._id}
-                                renderItem={({ item }) => (
-
-                                    <View style={{ flexDirection: "row", alignItems: "center", paddingVertical: 10, borderBottomWidth: 1, borderBottomColor: "rgba(0,0,0,0.5)", }}>
-                                        <Image
-                                            source={{ uri: item?.profile ? item.profile : "https://img.freepik.com/free-psd/3d-illustration-human-avatar-profile_23-2150671142.jpg?semt=ais_hybrid&w=740&q=80" }
-                                            }
-                                            defaultSource={{ uri: "https://img.freepik.com/free-psd/3d-illustration-human-avatar-profile_23-2150671142.jpg?semt=ais_hybrid&w=740&q=80" }} // iOS only
-                                            style={{ width: 40, height: 40, borderRadius: 20, marginRight: 10 }}
-                                        />
-                                        <Text style={{ flex: 1, fontSize: 16, color: "white" }}>{item?.username}</Text>
-                                        <TouchableOpacity style={{ backgroundColor: "#007bff", paddingVertical: 5, paddingHorizontal: 10, borderRadius: 5, }} onPress={() => sendInvite(item._id)}>
-                                            <Text style={{ color: "#fff", fontSize: 14 }}>Send Invite</Text>
-                                        </TouchableOpacity>
-                                    </View>
-
-                                )}
-                            />
-
-                            {/* Close Button */}
-                            <TouchableOpacity style={{ backgroundColor: "red", padding: 10, marginTop: 10, borderRadius: 5, alignItems: "center", }} onPress={() => setShowUserInvitation(false)}>
-                                <Text style={{ color: "#fff", fontSize: 14 }}>Close</Text>
-                            </TouchableOpacity>
-                        </View>
-                    </View>
-                </Modal>
+                <UserInvitationModal
+                    visible={showUserInvitation}
+                    onClose={() => setShowUserInvitation(false)}
+                    allUsers={allUsers}
+                    sendInvite={sendInvite}
+                />
 
                 {
                     gift && (
@@ -1461,7 +1425,7 @@ const CreatorStreamScreen = ({ route }) => {
                                                 }}
                                             >
                                                 <Text style={{ color: "#fff", fontSize: 15 }}>${item.price}</Text>
-                                          
+
                                             </View>
                                         </View>
                                     </View>
@@ -1481,7 +1445,7 @@ const CreatorStreamScreen = ({ route }) => {
                                                 ${(item.price * quantity).toFixed(2)}
                                             </Text>
                                         </View>
-                                     
+
                                     </View>
                                 </View>
                             ))}
@@ -1612,7 +1576,7 @@ const CreatorStreamScreen = ({ route }) => {
                 }
                 {
                     biddingWinner &&
-                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000",  width: "90%", borderRadius: 30, zIndex: 2 }}>
+                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", width: "90%", borderRadius: 30, zIndex: 2 }}>
                         <View style={{ justifyContent: "center", alignItems: "center", flexDirection: "row", marginTop: 5 }}>
                             <Text style={{ color: "#fff", fontSize: 30 }}>Winner</Text>
                         </View>
@@ -1634,7 +1598,7 @@ const CreatorStreamScreen = ({ route }) => {
                 }
                 {
                     showInitiateAuctionModal &&
-                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", width: "90%", borderRadius: 30, zIndex: 2 }}>
+                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", width: "90%", borderRadius: 30, zIndex: 200 }}>
                         <View style={{ justifyContent: "center", alignItems: "center", flexDirection: "row", marginTop: 5 }}>
                             <Text style={{ color: "#fff", fontSize: 24, fontWeight: 'bold' }}>Start Auction</Text>
                         </View>
@@ -1650,7 +1614,7 @@ const CreatorStreamScreen = ({ route }) => {
                             <TextInput
                                 keyboardType="numeric"
                                 value={auctionFormData.startingBid}
-                                onChangeText={(text) => setAuctionFormData({...auctionFormData, startingBid: text})}
+                                onChangeText={(text) => setAuctionFormData({ ...auctionFormData, startingBid: text })}
                                 placeholder="Enter starting bid"
                                 placeholderTextColor="#999"
                                 style={{
@@ -1669,7 +1633,7 @@ const CreatorStreamScreen = ({ route }) => {
                             <TextInput
                                 keyboardType="numeric"
                                 value={auctionFormData.duration}
-                                onChangeText={(text) => setAuctionFormData({...auctionFormData, duration: text})}
+                                onChangeText={(text) => setAuctionFormData({ ...auctionFormData, duration: text })}
                                 placeholder="Enter duration in seconds"
                                 placeholderTextColor="#999"
                                 style={{
@@ -1686,7 +1650,7 @@ const CreatorStreamScreen = ({ route }) => {
                             />
                             <View style={{ flexDirection: "row", alignItems: "center", marginBottom: 20 }}>
                                 <TouchableOpacity
-                                    onPress={() => setAuctionFormData({...auctionFormData, suddenDeathEnabled: !auctionFormData.suddenDeathEnabled})}
+                                    onPress={() => setAuctionFormData({ ...auctionFormData, suddenDeathEnabled: !auctionFormData.suddenDeathEnabled })}
                                     style={{
                                         width: 20,
                                         height: 20,
@@ -1746,7 +1710,7 @@ const CreatorStreamScreen = ({ route }) => {
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {
                                     streamInfo?.productId?.map((i) => (
-                                        <View key={i?._id} style={{ ...styles.cardStyle, width: 250, padding: 20, borderRadius: 20, marginBottom: 20, marginRight: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center" }}>
+                                        <View key={i?._id} style={{ ...styles.cardStyle, width: 250, padding: 20, borderRadius: 20, marginBottom: 20, marginRight: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center",}}>
                                             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
                                                 <Image source={{ uri: i?.images?.[0] || "https://via.placeholder.com/150", }} style={{ width: 50, height: 50, borderRadius: 10 }} />
                                                 <View>
@@ -1756,18 +1720,20 @@ const CreatorStreamScreen = ({ route }) => {
                                                 </View>
                                             </View>
                                             {Host && (
-                                                <Pressable 
+                                                <Pressable
                                                     onPress={() => handleInitiateAuction(i)}
-                                                    style={{ 
-                                                        backgroundColor: '#F78E1B', 
-                                                        paddingHorizontal: 12, 
-                                                        paddingVertical: 6, 
-                                                        borderRadius: 15,
+                                                    style={{
+                                                        backgroundColor: '#0A0A0A33',
+                                                        paddingHorizontal: 10,
+                                                        paddingVertical: 3,
+                                                        borderRadius: 30,
+                                                        borderWidth: 1,
+                                                        borderColor: "white",
                                                         justifyContent: 'center',
                                                         alignItems: 'center'
                                                     }}
                                                 >
-                                                    <Text style={{ color: "#fff", fontSize: 12, fontWeight: 'bold' }}>Start Auction</Text>
+                                                    <Text style={{ color: "#fff", fontSize: 20, }}>+</Text>
                                                 </Pressable>
                                             )}
                                         </View>
@@ -1883,6 +1849,7 @@ const styles = StyleSheet.create({
     },
     giftContainer: {
         position: "absolute",
+        backgroundColor: "rgba(0,0,0,0.5)",
         top: 80,
         left: "30%",
         transform: [{ translateX: -50 }],
@@ -2023,7 +1990,8 @@ const styles = StyleSheet.create({
         }),
     },
     cardStyle: {
-        backgroundColor: '#2c2c2eff',
+        backgroundColor: '#0A0A0A33',
+        opacity: 0.9,
         ...Platform.select({
             ios: {
                 shadowColor: '#000',
