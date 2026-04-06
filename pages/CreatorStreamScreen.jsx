@@ -475,7 +475,7 @@ const CreatorStreamScreen = ({ route }) => {
                 setBiddingWinner(true);
 
                 setTimeout(async () => {
-                    setBiddingWinner(false);
+                    // setBiddingWinner(false);
                     setWinnerDetails(null);
                     setEndingStream(false);
                     await leave();
@@ -483,7 +483,7 @@ const CreatorStreamScreen = ({ route }) => {
                 }, 3000);
             } else {
                 ToastAndroid.show(
-                    "Stream ended - No bids received",
+                    "Stream ended",
                     ToastAndroid.SHORT
                 );
 
@@ -1001,7 +1001,7 @@ const CreatorStreamScreen = ({ route }) => {
 
                             // Auto close modal and leave stream
                             setTimeout(async () => {
-                                setBiddingWinner(false);
+                                // setBiddingWinner(false);
                                 setWinnerDetails(null);
                                 setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
                                 // await leave();
