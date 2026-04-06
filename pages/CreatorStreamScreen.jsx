@@ -22,6 +22,7 @@ import dollarImg from '../assets/dollar.png'
 import TimerModal from "../components/TimerModal";
 import io from "socket.io-client";
 import UserInvitationModal from "../components/UserInviteModal";
+import { getAllGifts, getAllUsers, getProfileInfo } from "../hooks/getProfile";
 
 const appId = config.appId;
 const localUid = 0;
@@ -84,7 +85,10 @@ const CreatorStreamScreen = ({ route }) => {
     const [biddingWinner, setBiddingWinner] = useState(false);
     const [winnerDetails, setWinnerDetails] = useState(null);
     const [endingStream, setEndingStream] = useState(false);
+    const [auctionDetails, setAuctionDetails] = useState(null);
     const [showInitiateAuctionModal, setShowInitiateAuctionModal] = useState(false);
+    const [showAuctionEndPrompt, setShowAuctionEndPrompt] = useState(false);
+    const [showAuctionStartNotice, setShowAuctionStartNotice] = useState(false);
     const [selectedProductForAuction, setSelectedProductForAuction] = useState(null);
     const [auctionFormData, setAuctionFormData] = useState({
         startingBid: '',
@@ -174,50 +178,38 @@ const CreatorStreamScreen = ({ route }) => {
 
     const fetchProfileInfo = async () => {
         try {
-            let userId = await AsyncStorage.getItem('userId');
-            setuId(userId)
-            let res = await axios.get(`${config.baseUrl2}/account/single/${userId}`);
-            // console.log("📊 Profile Info Response:", res?.data?.data);  // ✅ Debug log
-            if (res?.data?.data) {
-                const newData = res?.data?.data;
+            const res = await getProfileInfo();
 
-                // Force update by creating new object reference
-                setData({ ...newData });
-                await new Promise(resolve => setTimeout(resolve, 200));
-            } else {
+            setuId(res.userId);
+
+            if (res.data) {
+                setData({ ...res.data });
             }
+
         } catch (error) {
-            // console.error("❌ Error fetching profile:", error.message);  // ❌ Error log
+            // handle error UI if needed
+            console.error("❌ Error fetching profile:", error.message);
         }
     };
+
     const fetchAllGifts = async () => {
         try {
-            let res = await axios.get(`${config.baseUrl2}/gifts/all`);
-            if (res?.data) {
-                setGiftsData(res?.data?.data);
-            }
-        } catch (error) {
-            console.log(error);
-        }
+            const gifts = await getAllGifts();
+            setGiftsData(gifts);
+        } catch (error) { console.log(error); }
     };
 
     const fetchAllUser = async () => {
         try {
-            let res = await axios.get(`${config.baseUrl2}/account/all`);
-            if (res?.data) {
-                setAllUsers(res?.data?.data);
-            }
-        } catch (error) {
-            console.log(error);
-        }
+            const users = await getAllUsers();
+            setAllUsers(users);
+        } catch (error) { console.log(error); }
     };
-
-
     const fetchStreamInfo = async () => {
         try {
             let res = await axios.get(`${config.baseUrl}/stream/stream/${streamId}`);
             const info = res.data.data;
-            // console.log('stream info', info)
+            console.log('stream info', info)
             setStreamInfo(info);
             setIsStreamLive(info?.status === 'LIVE');
             setCurrentBid(info.currentBid || info.startingBid);
@@ -245,6 +237,25 @@ const CreatorStreamScreen = ({ route }) => {
                     setEndTime(new Date(info.endTime).getTime());
                 }
             }
+            // fetchBiddings()
+            fetchAuctionInfo()
+        } catch (err) {
+            console.log("Error fetching stream:", err);
+        }
+    };
+    const fetchAuctionInfo = async () => {
+
+        const stream = streamInfo._id
+        console.log("Fetching auction info for streamId:", stream);
+        try {
+            let res = await axios.get(`${config.baseUrl}/auction/stream/${stream}`);
+            const info = res.data.data;
+            console.log('auction info', info)
+            setAuctionDetails(info);
+            setCurrentBid(info?.[0]?.currentBid || info?.[0]?.startingBid);
+            // console.log('EndTime:', new Date(info?.[0]?.endTime).getTime());
+            // setEndTime(new Date(info?.[0]?.endTime).getTime());
+            // fetchBiddings()
 
         } catch (err) {
             console.log("Error fetching stream:", err);
@@ -252,18 +263,25 @@ const CreatorStreamScreen = ({ route }) => {
     };
 
     const fetchBiddings = async () => {
+        console.log("Fetching biddings for streamId:", streamId, "with auctionId:", streamInfo?.auctionIds?.[0]);
         try {
             // console.log("📥 Fetching biddings for streamId:", streamId);
-            const res = await axios.get(`${config.baseUrl}/stream/biddings/${streamId}`);
-            // console.log("📊 Biddings API Response:", res?.data?.data);
+            const res = await axios.get(`${config.baseUrl}/bidding/by-auction-stream`,
+                {
+                    params: {
+                        auctionId: auctionDetails?.[0]?._id,
+                        streamId: streamInfo?._id,
+                    },
+                }
+            );
+            console.log("📊 Biddings API Response:", res?.data?.data);
             console.log(res)
             if (res?.data?.data) {
                 console.log("✅ Biddings updated. Count:", res.data.data.length);
                 setBiddings(res.data.data);
-
                 // keep highest bid synced
                 if (res.data.data.length > 0) {
-                    const highestBid = res.data.data[0].bidAmount;
+                    const highestBid = res?.data?.data?.[0]?.bidAmount;
                     setCurrentBid(highestBid);
                     // console.log("💰 Highest bid set to:", highestBid);
                     // console.log("🏆 Current leader:", res.data.data[0].bidderId?.username);
@@ -274,6 +292,7 @@ const CreatorStreamScreen = ({ route }) => {
                 // console.warn("⚠️ No biddings data in response:", res?.data);
             }
         } catch (err) {
+            console.log(err)
             console.error("❌ Error fetching bids:", err.message);
         }
     };
@@ -508,8 +527,9 @@ const CreatorStreamScreen = ({ route }) => {
     }
     const handleSend = async () => {
         if (!message.trim()) return;
+        console.log('auction id', auctionDetails?.[0]?._id,)
         try {
-            await axios.post(`${config.baseUrl}/stream/message`, { streamId: streamId, userId: uId, message })
+            await axios.post(`${config.baseUrl}/stream/message`, { auctionId: auctionDetails?.[0]?._id, streamId: streamId, userId: uId, message });
             setMessage("");
             fetchMessages();
         } catch (error) {
@@ -658,11 +678,17 @@ const CreatorStreamScreen = ({ route }) => {
                     }
                     else {
                         let userId = await AsyncStorage.getItem('userId');
+                        console.log("User ID:", userId);
+                        console.log("bidAmount:", bidAmount);
+                        console.log("auctionId", auctionDetails?.[0]?._id);
+                        console.log("streamId", streamInfo?._id);
                         const bidResponse = await axios.post(`${config.baseUrl}/stream/bidding`, {
                             streamId: streamInfo?._id,
                             bidderId: userId,
-                            bidAmount: finalBidAmount
+                            bidAmount: finalBidAmount,
+                            auctionId: auctionDetails?.[0]?._id
                         });
+                        console.log("Bid Response:", bidResponse);
                         // Show notification for quickbid
                         if (quickBid) {
                             setShowBidNotifcation(true);
@@ -699,6 +725,8 @@ const CreatorStreamScreen = ({ route }) => {
                         setBidAmount('');
                         setBidAmount(currentBid)
                         await fetchProfileInfo();
+                        await fetchStreamInfo();
+                        await fetchAuctionInfo();
 
                         setshowBid(false);
                     }
@@ -718,6 +746,7 @@ const CreatorStreamScreen = ({ route }) => {
                 if (res?.data?.data) {
                     ToastAndroid.show('Now Following Creator!', ToastAndroid.SHORT);
                     fetchStreamInfo();
+                    fetchAuctionInfo()
                     fetchProfileInfo()
                 }
             }
@@ -729,7 +758,6 @@ const CreatorStreamScreen = ({ route }) => {
 
     const handleAddTimer = async (minutes, seconds) => {
         try {
-            // ✅ Verify user is the actual stream creator
             if (!isActualCreator()) {
                 Alert.alert("Permission Denied", "Only the stream creator can modify the timer.");
                 return;
@@ -741,14 +769,15 @@ const CreatorStreamScreen = ({ route }) => {
                 return;
             }
 
-            if (endTime && Date.now() >= endTime) {
-                Alert.alert("Auction Ended", "Auction has already ended.");
-                return;
-            }
+            // if (endTime && Date.now() >= endTime) {
+            //     Alert.alert("Auction Ended", "Auction has already ended.");
+            //     return;
+            // }
             let res = await axios.post(`${config.baseUrl2}/stream/bidding/timer`, { streamId: streamInfo?._id, biddingEndTime: biddingEndTime });
             if (res?.data?.data) {
                 ToastAndroid.show('Timer Added!', ToastAndroid.SHORT);
                 fetchStreamInfo();
+                fetchAuctionInfo()
             }
         } catch (error) {
             console.log(error);
@@ -758,7 +787,7 @@ const CreatorStreamScreen = ({ route }) => {
     }
 
     const handleInitiateAuction = (product) => {
-        setSelectedProductForAuction(product);
+        setSelectedProductForAuction(product || streamInfo?.productId?.[0] || null);
         setAuctionFormData({
             startingBid: product.price.toString(),
             duration: '10',
@@ -774,8 +803,9 @@ const CreatorStreamScreen = ({ route }) => {
         }
 
         if (!selectedProductForAuction) {
-            Alert.alert('Error', 'No product selected');
-            return;
+            // Alert.alert('Error', 'No product selected');
+            // return;
+            setSelectedProductForAuction(streamInfo?.productId?.[0] || null);
         }
 
         try {
@@ -785,9 +815,9 @@ const CreatorStreamScreen = ({ route }) => {
 
             const auctionData = {
                 streamId: streamInfo._id,
-                productId: selectedProductForAuction._id,
+                productId: !selectedProductForAuction._id ? streamInfo?.productId?.[0]?._id : selectedProductForAuction._id,
                 startingBid: Number(auctionFormData.startingBid),
-                biddingDuration: biddingDuration,
+                duration: biddingDuration,
                 startTime: startTime.toISOString(),
                 endTime: endTime.toISOString(),
                 suddenDeath: auctionFormData.suddenDeathEnabled,
@@ -807,8 +837,10 @@ const CreatorStreamScreen = ({ route }) => {
                 });
                 // Refresh stream info to show updated auction status
                 fetchStreamInfo();
+                fetchAuctionInfo()
             } else {
                 Alert.alert('Error', res?.data?.message || 'Failed to start auction');
+                console.error('Auction creation failed:', res?.data);
             }
         } catch (error) {
             console.error('Error starting auction:', error);
@@ -894,6 +926,7 @@ const CreatorStreamScreen = ({ route }) => {
         fetchStreamInfo();
         fetchAllUser();
         fetchAllGifts()
+        fetchAuctionInfo()
     }, [])
 
     useEffect(() => {
@@ -956,7 +989,7 @@ const CreatorStreamScreen = ({ route }) => {
 
                             // 📡 Update backend: Mark auction as COMPLETED
                             try {
-                                await axios.put(`${config.baseUrl}/stream/end/${streamInfo?._id}`, {
+                                await axios.put(`${config.baseUrl}/auction/end/${auctionDetails?.[0]?._id}`, {
                                     status: "COMPLETED",
                                     winnerId: winningBid.bidderId._id,
                                     winningBidAmount: winningBid.bidAmount
@@ -971,17 +1004,18 @@ const CreatorStreamScreen = ({ route }) => {
                                 setBiddingWinner(false);
                                 setWinnerDetails(null);
                                 setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
-                                await leave();
-                                navigation.navigate('Home');
+                                // await leave();
+                                // navigation.navigate('Home');
                             }, 3000);
                         } else if (streamInfo && streamInfo.status === "LIVE") {
                             // ❌ No bids: Mark auction as UNSOLD
                             ToastAndroid.show("⏱️ Auction ended - No bids received", ToastAndroid.LONG);
 
                             try {
-                                await axios.put(`${config.baseUrl}/stream/end/${streamInfo?._id}`, {
-                                    status: "UNSOLD",
-                                    reason: "No bids received"
+                                await axios.put(`${config.baseUrl}/auction/end/${auctionDetails?.[0]?._id}`, {
+                                    status: "COMPLETED",
+                                    winnerId: winningBid.bidderId._id,
+                                    winningBidAmount: winningBid.bidAmount
                                 });
                                 console.log("❌ Auction marked as UNSOLD - No bids");
                             } catch (updateError) {
@@ -991,16 +1025,25 @@ const CreatorStreamScreen = ({ route }) => {
                             // Auto leave stream
                             setTimeout(async () => {
                                 setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
-                                await leave();
-                                navigation.navigate('Home');
+                                // await leave();
+                                // navigation.navigate('Home');
                             }, 1500);
                         }
 
                         // Refresh stream info
-                        fetchStreamInfo();
+                        // fetchStreamInfo(); // Commented out to prevent stream from ending when auction completes
+                        fetchAuctionInfo()
+
+                        const isHostEnding = isActualCreator();
+                        if (isHostEnding) {
+                            setShowAuctionEndPrompt(true);
+                        } else {
+                            setShowAuctionStartNotice(true);
+                        }
                     } catch (error) {
                         console.log("Error finalizing auction:", error);
-                        fetchStreamInfo();
+                        // fetchStreamInfo(); // Commented out to prevent stream from ending on error
+                        fetchAuctionInfo()
                     }
                 };
 
@@ -1073,11 +1116,13 @@ const CreatorStreamScreen = ({ route }) => {
         socketRef.current.on("streamEnded", () => {
             // console.log("🏁 Socket: streamEnded event received");
             fetchStreamInfo();
+            fetchAuctionInfo()
         });
 
         // console.log("📊 Initial fetch: streamInfo and biddings for streamId:", streamId);
         fetchStreamInfo();
-        // fetchBiddings();
+        fetchAuctionInfo()
+        fetchBiddings();
 
         return () => {
             // console.log("🔌 Disconnecting socket");
@@ -1278,9 +1323,7 @@ const CreatorStreamScreen = ({ route }) => {
                     <View>
                         <Text style={{ color: timeLeft && Number(timeLeft.split(":")[0]) * 60 + Number(timeLeft.split(":")[1]) <= 10 ? "red" : "white", fontSize: 14, marginRight: 5 }}>{timeLeft}</Text>
                     </View>
-                    {/* <TouchableOpacity onPress={() => handleBid(currentBid + streamInfo?.bidIncrement || 2)} style={{ backgroundColor: "orange", paddingHorizontal: 10, paddingVertical: 5, borderRadius: 100 }}>
-                        <Text style={{ color: "white", fontSize: 14 }}>Quick Bid</Text>
-                    </TouchableOpacity> */}
+
                     <TouchableOpacity
                         disabled={!isLiveAuction || (endTime && Date.now() >= endTime) || isSuddenDeathZone}
                         onPress={() => handleBid(currentBid + (streamInfo?.bidIncrement || 2))}
@@ -1559,9 +1602,11 @@ const CreatorStreamScreen = ({ route }) => {
                                 {parseInt(bidAmount, 10) > currentBid && (
                                     <Text style={{ color: "#90EE90", fontSize: 12, marginTop: 5 }}>✓ Valid bid amount</Text>
                                 )}
-                                {parseInt(bidAmount, 10) <= currentBid && bidAmount?.trim() !== '' && (
-                                    <Text style={{ color: "#FF6B6B", fontSize: 12, marginTop: 5 }}>✗ Must be higher than ${currentBid}</Text>
-                                )}
+                                {parseInt(bidAmount, 10) <= currentBid
+                                    // && bidAmount?.trim() !== '' 
+                                    && (
+                                        <Text style={{ color: "#FF6B6B", fontSize: 12, marginTop: 5 }}>✗ Must be higher than ${currentBid}</Text>
+                                    )}
                             </View>
                         ) : null}
                         <View style={{ flexDirection: "row", marginTop: 20 }}>
@@ -1592,6 +1637,44 @@ const CreatorStreamScreen = ({ route }) => {
                         <View style={{ flexDirection: "row", marginTop: 20 }}>
                             <TouchableOpacity onPress={() => setBiddingWinner(false)} style={[styles.cancelButton, { flex: 1 }]}>
                                 <Text style={styles.cancelText}>Close</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                }
+                {
+                    showAuctionEndPrompt &&
+                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", width: "90%", borderRadius: 30, zIndex: 200 }}>
+                        <View style={{ justifyContent: "center", alignItems: "center", flexDirection: "row", marginTop: 5 }}>
+                            <Text style={{ color: "#fff", fontSize: 24, fontWeight: 'bold' }}>Auction Ended</Text>
+                        </View>
+                        <Text style={{ color: "#c4c4c4", fontSize: 14, textAlign: 'center', marginVertical: 15 }}>
+                            The auction has ended. Would you like to start a new auction now?
+                        </Text>
+                        <View style={{ flexDirection: "row", justifyContent: 'space-between', marginTop: 20 }}>
+                            <TouchableOpacity onPress={() => setShowAuctionEndPrompt(false)} style={[styles.cancelButton, { flex: 1, marginRight: 8 }]}>
+                                <Text style={styles.cancelText}>Later</Text>
+                            </TouchableOpacity>
+                            <TouchableOpacity onPress={() => {
+                                setShowAuctionEndPrompt(false);
+                                setShowInitiateAuctionModal(true);
+                            }} style={[styles.startAuctionButton, { flex: 1, marginLeft: 8 }]}>
+                                <Text style={styles.startAuctionText}>Start New Auction</Text>
+                            </TouchableOpacity>
+                        </View>
+                    </View>
+                }
+                {
+                    showAuctionStartNotice &&
+                    <View style={{ position: "absolute", left: 20, right: 10, bottom: keyboardOpen ? 400 : 30, padding: 20, backgroundColor: "#000", width: "90%", borderRadius: 30, zIndex: 200 }}>
+                        <View style={{ justifyContent: "center", alignItems: "center", flexDirection: "row", marginTop: 5 }}>
+                            <Text style={{ color: "#fff", fontSize: 24, fontWeight: 'bold' }}>New Auction Incoming</Text>
+                        </View>
+                        <Text style={{ color: "#c4c4c4", fontSize: 14, textAlign: 'center', marginVertical: 15 }}>
+                            The current auction has ended. The host is preparing another auction now, please stay tuned.
+                        </Text>
+                        <View style={{ flexDirection: "row", justifyContent: 'center', marginTop: 20 }}>
+                            <TouchableOpacity onPress={() => setShowAuctionStartNotice(false)} style={[styles.startAuctionButton, { flex: 1 }]}>
+                                <Text style={styles.startAuctionText}>Okay</Text>
                             </TouchableOpacity>
                         </View>
                     </View>
@@ -1710,7 +1793,7 @@ const CreatorStreamScreen = ({ route }) => {
                             <ScrollView horizontal showsHorizontalScrollIndicator={false}>
                                 {
                                     streamInfo?.productId?.map((i) => (
-                                        <View key={i?._id} style={{ ...styles.cardStyle, width: 250, padding: 20, borderRadius: 20, marginBottom: 20, marginRight: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center",}}>
+                                        <View key={i?._id} style={{ ...styles.cardStyle, width: 250, padding: 20, borderRadius: 20, marginBottom: 20, marginRight: 20, flexDirection: "row", justifyContent: "space-between", alignItems: "center", }}>
                                             <View style={{ flexDirection: "row", alignItems: "flex-start", gap: 10 }}>
                                                 <Image source={{ uri: i?.images?.[0] || "https://via.placeholder.com/150", }} style={{ width: 50, height: 50, borderRadius: 10 }} />
                                                 <View>
