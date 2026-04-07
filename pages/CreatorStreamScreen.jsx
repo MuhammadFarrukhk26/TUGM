@@ -943,7 +943,6 @@ const CreatorStreamScreen = ({ route }) => {
     }, []);
 
     useEffect(() => {
-        // 🛑 Don't start timer if stream already ended
         if (!endTime || isAuctionEnded) return;
 
         const interval = setInterval(() => {
@@ -960,18 +959,16 @@ const CreatorStreamScreen = ({ route }) => {
                 setTimeLeft("00:00");
                 clearInterval(interval);
 
-                // 🏆 AUCTION END LOGIC - Only auto-end if NOT in sudden death or if sudden death is disabled
                 const finalizeAuction = async () => {
                     try {
-                        // 🛑 Prevent multiple executions of this function
                         if (endingStream) {
                             console.log("⏹️ Stream already ending, skipping duplicate finalization");
                             return;
                         }
+                        console.log("Biddings", biddings)
+                        console.log('AuctionDetails', auctionDetails?.[0]?.bidHistory)
+                        if (biddings.length > 0 && streamInfo && auctionDetails) {
 
-                        // Host ending stream is now manual only. Auto-close should not call performEndStream().
-                        if (biddings.length > 0 && streamInfo) {
-                            // ✅ Winner exists: Create shipment and mark auction completed
                             const winningBid = biddings[0];
                             await createShipmentForWinner(streamInfo, winningBid);
                             // console.log('winner', winnerDetails)
@@ -1007,7 +1004,50 @@ const CreatorStreamScreen = ({ route }) => {
                                 // await leave();
                                 // navigation.navigate('Home');
                             }, 3000);
-                        } else if (streamInfo && streamInfo.status === "LIVE") {
+                        }
+
+                        else if (auctionDetails?.[0]?.bidHistory?.length > 0 && streamInfo && auctionDetails) {
+                            const winningBid = auctionDetails?.[0]?.highestBidder
+                            const winningBidAmount = auctionDetails?.[0]?.currentBid
+
+                            // const winningBid = biddings[0];
+                            // await createShipmentForWinner(streamInfo, winningBid);
+                            // console.log('winner', winnerDetails)
+                            // Store winner details for display
+                            setWinnerDetails({
+                                winnerId: winningBid._id,
+                                username: winningBid.username,
+                                bidAmount: winningBidAmount,
+                                profile: winningBid.profile
+                            });
+                            setBiddingWinner(true);
+
+                            // Show single toast notification
+                            ToastAndroid.show("🏆 Auction ended - Winner announced!", ToastAndroid.LONG);
+
+                            // 📡 Update backend: Mark auction as COMPLETED
+                            try {
+                                await axios.put(`${config.baseUrl}/auction/end/${auctionDetails?.[0]?._id}`, {
+                                    status: "COMPLETED",
+                                    winnerId: winningBid._id,
+                                    winningBidAmount: winningBidAmount
+                                });
+                                // console.log("✅ Auction marked as COMPLETED");
+                            } catch (updateError) {
+                                console.log("Note: Backend update may not be supported. Auction will be marked completed on next fetch.");
+                            }
+
+                            // Auto close modal and leave stream
+                            setTimeout(async () => {
+                                // setBiddingWinner(false);
+                                setWinnerDetails(null);
+                                setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
+                                // await leave();
+                                // navigation.navigate('Home');
+                            }, 3000);
+
+                        }
+                        else if (streamInfo && streamInfo.status === "LIVE") {
                             // ❌ No bids: Mark auction as UNSOLD
                             ToastAndroid.show("⏱️ Auction ended - No bids received", ToastAndroid.LONG);
 
