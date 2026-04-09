@@ -61,7 +61,7 @@ const CreateStreamScreen = () => {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
                 setProducts(res?.data?.data);
-                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory) && x?.isDeleted === false || null) : res?.data?.data?.filter((x) => x?.isDeleted === false || null))
             }
         }
         catch (error) {

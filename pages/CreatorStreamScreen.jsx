@@ -1,4 +1,4 @@
-import React, {useEffect, useRef, useState} from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   Platform,
   View,
@@ -28,35 +28,35 @@ import {
 import config from '../config';
 import Entypo from 'react-native-vector-icons/Entypo';
 import getPermission from '../components/Permission';
-import {useNavigation} from '@react-navigation/core';
+import { useNavigation } from '@react-navigation/core';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import AntDesign from 'react-native-vector-icons/AntDesign';
 import Feather from 'react-native-vector-icons/Feather';
 import Octicons from 'react-native-vector-icons/Octicons';
 import FontAwesome from 'react-native-vector-icons/FontAwesome';
-import {useDispatch} from 'react-redux';
-import {addToCart} from '../redux/cartSlice';
+import { useDispatch } from 'react-redux';
+import { addToCart } from '../redux/cartSlice';
 import {
   initPaymentSheet,
   presentPaymentSheet,
 } from '@stripe/stripe-react-native';
 import Ionicons from 'react-native-vector-icons/Ionicons';
-import {KeyboardAwareScrollView} from 'react-native-keyboard-aware-scroll-view';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-aware-scroll-view';
 import useLiveStreamSocket from '../hooks/socketRef';
 import giftImg from '../assets/gift.png';
 import dollarImg from '../assets/dollar.png';
 import TimerModal from '../components/TimerModal';
 import io from 'socket.io-client';
 import UserInvitationModal from '../components/UserInviteModal';
-import {getAllGifts, getAllUsers, getProfileInfo} from '../hooks/getProfile';
+import { getAllGifts, getAllUsers, getProfileInfo } from '../hooks/getProfile';
 
 const appId = config.appId;
 const localUid = 0;
-const {width, height} = Dimensions.get('window');
+const { width, height } = Dimensions.get('window');
 
-const CreatorStreamScreen = ({route}) => {
-  const {streamId, isHost, coHost = false} = route.params;
+const CreatorStreamScreen = ({ route }) => {
+  const { streamId, isHost, coHost = false } = route.params;
   const socketRef = useRef(null);
   const agoraEngineRef = useRef(null);
   const eventHandler = useRef(null);
@@ -113,6 +113,7 @@ const CreatorStreamScreen = ({route}) => {
   const [winnerDetails, setWinnerDetails] = useState(null);
   const [endingStream, setEndingStream] = useState(false);
   const [auctionDetails, setAuctionDetails] = useState(null);
+  const [highestBidder, setHighestBidder] = useState(null);
   const [showInitiateAuctionModal, setShowInitiateAuctionModal] =
     useState(false);
   const [showAuctionEndPrompt, setShowAuctionEndPrompt] = useState(false);
@@ -132,7 +133,7 @@ const CreatorStreamScreen = ({route}) => {
 
     const engine = createAgoraRtcEngine();
     agoraEngineRef.current = engine;
-    engine.initialize({appId});
+    engine.initialize({ appId });
     console.log(Host, 'host status');
     if (Host || isHost) {
       engine.enableVideo();
@@ -212,7 +213,7 @@ const CreatorStreamScreen = ({route}) => {
       setuId(res.userId);
 
       if (res.data) {
-        setData({...res.data});
+        setData({ ...res.data });
       }
     } catch (error) {
       // handle error UI if needed
@@ -255,7 +256,7 @@ const CreatorStreamScreen = ({route}) => {
       }
       // console.log(info)
       if (info.mode === 'AUCTION' && info.endTime) {
-        setEndTime(new Date(info.endTime).getTime());
+        // setEndTime(new Date(info.endTime).getTime());
       } else {
         setEndTime(null);
       }
@@ -269,7 +270,7 @@ const CreatorStreamScreen = ({route}) => {
         }
       }
       // fetchBiddings()
-      fetchAuctionInfo();
+      // fetchAuctionInfo();
     } catch (err) {
       console.log('Error fetching stream:', err);
     }
@@ -279,12 +280,13 @@ const CreatorStreamScreen = ({route}) => {
     console.log('Fetching auction info for streamId:', stream);
     try {
       let res = await axios.get(`${config.baseUrl}/auction/stream/${stream}`);
-      const info = res.data.data;
+      const info = res?.data?.data?.filter(auction => auction?.status === 'ACTIVE');
       console.log('auction info', info);
       setAuctionDetails(info);
+      setHighestBidder(info?.[0]?.highestBidder || null);
       setCurrentBid(info?.[0]?.currentBid || info?.[0]?.startingBid);
       // console.log('EndTime:', new Date(info?.[0]?.endTime).getTime());
-      // setEndTime(new Date(info?.[0]?.endTime).getTime());
+      setEndTime(new Date(info?.[0]?.endTime).getTime());
       // fetchBiddings()
     } catch (err) {
       console.log('Error fetching stream:', err);
@@ -334,8 +336,7 @@ const CreatorStreamScreen = ({route}) => {
   const fetchToken = async () => {
     try {
       let res = await axios.get(
-        `${config.baseUrl3}/stream/token/${streamId}/${
-          Host ? 'host' : 'subscriber'
+        `${config.baseUrl3}/stream/token/${streamId}/${Host ? 'host' : 'subscriber'
         }`,
       );
       if (res?.data) {
@@ -506,10 +507,9 @@ const CreatorStreamScreen = ({route}) => {
 
           Alert.alert(
             'Order Error',
-            `Order creation failed: ${
-              orderError?.response?.data?.message ||
-              orderError?.message ||
-              'Please try again.'
+            `Order creation failed: ${orderError?.response?.data?.message ||
+            orderError?.message ||
+            'Please try again.'
             }`,
           );
         }
@@ -623,7 +623,7 @@ const CreatorStreamScreen = ({route}) => {
 
   const handleAddToCard = product => {
     ToastAndroid.show('Item Added In Cart', ToastAndroid.SHORT);
-    dispatch(addToCart({...product, quantity}));
+    dispatch(addToCart({ ...product, quantity }));
   };
   const proceed = async () => {
     Keyboard.dismiss();
@@ -632,7 +632,7 @@ const CreatorStreamScreen = ({route}) => {
     try {
       let paymentIntentRes = await axios.post(
         `${config.baseUrl2}/payment/create-intent`,
-        {amount: amount * 100, currency: 'usd'},
+        { amount: amount * 100, currency: 'usd' },
       );
       if (!paymentIntentRes?.data?.clientSecret) {
         throw new Error('Failed to fetch payment intent');
@@ -654,7 +654,7 @@ const CreatorStreamScreen = ({route}) => {
           } else {
             let res = await axios.put(
               `${config.baseUrl2}/account/buy/${userId}`,
-              {dollars: amount},
+              { dollars: amount },
             );
             if (res?.data) {
               ToastAndroid.show(
@@ -735,7 +735,7 @@ const CreatorStreamScreen = ({route}) => {
     try {
       let paymentIntentRes = await axios.post(
         `${config.baseUrl2}/payment/create-intent`,
-        {amount: finalBidAmount * 100, currency: 'usd'},
+        { amount: finalBidAmount * 100, currency: 'usd' },
       );
       if (!paymentIntentRes?.data?.clientSecret) {
         throw new Error('Failed to fetch payment intent');
@@ -774,7 +774,7 @@ const CreatorStreamScreen = ({route}) => {
             if (quickBid) {
               setShowBidNotifcation(true);
               setBidNotifcationData({
-                bidderId: {username: data?.username},
+                bidderId: { username: data?.username },
                 bidAmount: finalBidAmount,
               });
               setCurrentBid(finalBidAmount);
@@ -808,13 +808,14 @@ const CreatorStreamScreen = ({route}) => {
             }
 
             ToastAndroid.show('Bid Added!', ToastAndroid.SHORT);
+            setshowBid(false);
             setBidAmount('');
             setBidAmount(currentBid);
             await fetchProfileInfo();
             await fetchStreamInfo();
             await fetchAuctionInfo();
 
-            setshowBid(false);
+
           }
         }
       }
@@ -876,6 +877,7 @@ const CreatorStreamScreen = ({route}) => {
     } catch (error) {
       console.log(error);
       console.log('Axios Error:', error.response?.data);
+      ToastAndroid.show(error.response?.data?.error, ToastAndroid.SHORT);
       console.log('Status:', error.response?.status);
     }
   };
@@ -1076,57 +1078,62 @@ const CreatorStreamScreen = ({route}) => {
               return;
             }
             console.log('Biddings', biddings);
-            console.log('AuctionDetails', auctionDetails?.[0]?.bidHistory);
-            if (biddings.length > 0 && streamInfo && auctionDetails) {
-              const winningBid = biddings[0];
-              await createShipmentForWinner(streamInfo, winningBid);
-              // console.log('winner', winnerDetails)
-              // Store winner details for display
-              setWinnerDetails({
-                winnerId: winningBid.bidderId._id,
-                username: winningBid.bidderId.username,
-                bidAmount: winningBid.bidAmount,
-                profile: winningBid.bidderId.profile,
-              });
-              setBiddingWinner(true);
+            console.log('AuctionDetails', auctionDetails?.[0]);
+            console.log('HighestBidder', highestBidder);
+            // if (biddings.length > 0 && streamInfo && auctionDetails) {
+            //   const winningBid = biddings[0];
+            //   await createShipmentForWinner(streamInfo, winningBid);
+            //   // console.log('winner', winnerDetails)
+            //   // Store winner details for display
+            //   setWinnerDetails({
+            //     winnerId: winningBid.bidderId._id,
+            //     username: winningBid.bidderId.username,
+            //     bidAmount: winningBid.bidAmount,
+            //     profile: winningBid.bidderId.profile,
+            //   });
+            //   setBiddingWinner(true);
 
-              // Show single toast notification
-              ToastAndroid.show(
-                '🏆 Auction ended - Winner announced!',
-                ToastAndroid.LONG,
-              );
+            //   // Show single toast notification
+            //   ToastAndroid.show(
+            //     '🏆 Auction ended - Winner announced!',
+            //     ToastAndroid.LONG,
+            //   );
 
-              // 📡 Update backend: Mark auction as COMPLETED
-              try {
-                await axios.put(
-                  `${config.baseUrl}/auction/end/${auctionDetails?.[0]?._id}`,
-                  {
-                    status: 'COMPLETED',
-                    winnerId: winningBid.bidderId._id,
-                    winningBidAmount: winningBid.bidAmount,
-                  },
-                );
-                // console.log("✅ Auction marked as COMPLETED");
-              } catch (updateError) {
-                console.log(
-                  'Note: Backend update may not be supported. Auction will be marked completed on next fetch.',
-                );
-              }
+            //   // 📡 Update backend: Mark auction as COMPLETED
+            //   try {
+            //     await axios.put(
+            //       `${config.baseUrl}/auction/end/${auctionDetails?._id}`,
+            //       {
+            //         status: 'COMPLETED',
+            //         winnerId: winningBid.bidderId._id,
+            //         winningBidAmount: winningBid.bidAmount,
+            //       },
+            //     );
+            //     // console.log("✅ Auction marked as COMPLETED");
+            //   } catch (updateError) {
+            //     console.log(
+            //       'Note: Backend update may not be supported. Auction will be marked completed on next fetch.',
+            //     );
+            //   }
 
-              // Auto close modal and leave stream
-              setTimeout(async () => {
-                // setBiddingWinner(false);
-                setWinnerDetails(null);
-                setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
-                // await leave();
-                // navigation.navigate('Home');
-              }, 3000);
-            } else if (
-              auctionDetails?.[0]?.bidHistory?.length > 0 &&
+            //   // Auto close modal and leave stream
+            //   setTimeout(async () => {
+            //     // setBiddingWinner(false);
+            //     setWinnerDetails(null);
+            //     setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
+            //     // await leave();
+            //     // navigation.navigate('Home');
+            //   }, 3000);
+
+            // }
+
+            // else 
+            if (
               streamInfo &&
-              auctionDetails
+              auctionDetails 
+              // highestBidder
             ) {
-              const winningBid = auctionDetails?.[0]?.highestBidder;
+              const winningBid = highestBidder || auctionDetails?.[0]?.highestBidder;
               const winningBidAmount = auctionDetails?.[0]?.currentBid;
 
               // const winningBid = biddings[0];
@@ -1167,7 +1174,7 @@ const CreatorStreamScreen = ({route}) => {
               // Auto close modal and leave stream
               setTimeout(async () => {
                 // setBiddingWinner(false);
-                setWinnerDetails(null);
+                // setWinnerDetails(null);
                 setEndTime(null); // 🛑 Clear endTime to prevent re-triggering
                 // await leave();
                 // navigation.navigate('Home');
@@ -1248,19 +1255,7 @@ const CreatorStreamScreen = ({route}) => {
     return () => {
       clearInterval(interval);
     };
-  }, [
-    endTime,
-    auctionDetails,
-    endingStream,
-    fetchAuctionInfo,
-    isActualCreator,
-    biddings,
-    streamInfo,
-    Host,
-    suddenDeathEnabled,
-    suddenDeathThreshold,
-    isAuctionEnded,
-  ]);
+  }, [endTime, biddings, streamInfo, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
 
   useEffect(() => {
     socketRef.current = io('YOUR_BACKEND_URL');
@@ -1368,7 +1363,7 @@ const CreatorStreamScreen = ({route}) => {
             <View
               style={{
                 shadowColor: '#000',
-                shadowOffset: {width: 0, height: 4},
+                shadowOffset: { width: 0, height: 4 },
                 shadowOpacity: 0.3,
                 shadowRadius: 4.65,
                 elevation: 8,
@@ -1393,9 +1388,9 @@ const CreatorStreamScreen = ({route}) => {
                   paddingHorizontal: 5,
                   paddingVertical: 3,
                 }}>
-                <View style={{marginLeft: 2}}>
+                <View style={{ marginLeft: 2 }}>
                   <Image
-                    source={{uri: streamInfo?.creatorId?.profile}}
+                    source={{ uri: streamInfo?.creatorId?.profile }}
                     style={{
                       width: 35,
                       height: 35,
@@ -1413,17 +1408,17 @@ const CreatorStreamScreen = ({route}) => {
                       alignItems: 'center',
                       paddingHorizontal: 6,
                     }}>
-                    <Text style={{color: '#fff', fontSize: 8}}>
+                    <Text style={{ color: '#fff', fontSize: 8 }}>
                       {isStreamLive ? 'LIVE' : streamInfo?.status || 'OFFLINE'}
                     </Text>
                   </View>
                 </View>
                 <View>
                   <Text
-                    style={{color: '#fff', fontSize: 14, fontWeight: '600'}}>
+                    style={{ color: '#fff', fontSize: 14, fontWeight: '600' }}>
                     {streamInfo?.creatorId?.username}
                   </Text>
-                  <Text style={{color: '#fff', fontSize: 10}}>
+                  <Text style={{ color: '#fff', fontSize: 10 }}>
                     {streamInfo?.creatorId?.followers ?? 0} Followers
                   </Text>
                 </View>
@@ -1443,7 +1438,7 @@ const CreatorStreamScreen = ({route}) => {
                     paddingVertical: 10,
                     marginLeft: 5,
                   }}>
-                  <Text style={{color: '#fff', fontSize: 13}}>
+                  <Text style={{ color: '#fff', fontSize: 13 }}>
                     {streamInfo?.creatorId?.followedBy?.includes(uId)
                       ? 'Following'
                       : 'Follow'}
@@ -1455,7 +1450,7 @@ const CreatorStreamScreen = ({route}) => {
           <TouchableOpacity
             style={{
               shadowColor: 'white',
-              shadowOffset: {width: 0, height: 4},
+              shadowOffset: { width: 0, height: 4 },
               shadowOpacity: 0.3,
               shadowRadius: 4.65,
               elevation: 8,
@@ -1469,7 +1464,7 @@ const CreatorStreamScreen = ({route}) => {
               gap: 5,
             }}>
             <AntDesign name="eye" size={24} color="white" />
-            <Text style={{color: '#fff'}}>
+            <Text style={{ color: '#fff' }}>
               {viewerCount == 0 ? 1 : viewerCount}
             </Text>
           </TouchableOpacity>
@@ -1493,9 +1488,9 @@ const CreatorStreamScreen = ({route}) => {
                 <ActivityIndicator
                   size="small"
                   color="#fff"
-                  style={{marginRight: 5}}
+                  style={{ marginRight: 5 }}
                 />
-                <Text style={{color: '#fff', fontSize: 12}}>Ending...</Text>
+                <Text style={{ color: '#fff', fontSize: 12 }}>Ending...</Text>
               </>
             ) : (
               <Entypo name="cross" size={22} color={'#fff'} />
@@ -1507,7 +1502,7 @@ const CreatorStreamScreen = ({route}) => {
   };
 
   return (
-    <View style={{flex: 1}}>
+    <View style={{ flex: 1 }}>
       <KeyboardAwareScrollView
         contentContainerStyle={styles.container}
         enableOnAndroid={true}>
@@ -1518,7 +1513,7 @@ const CreatorStreamScreen = ({route}) => {
               renderMode: 1,
               mirrorMode: isFrontCamera ? 1 : 0,
             }}
-            connection={{channelId: channelName, localUid}}
+            connection={{ channelId: channelName, localUid }}
             style={styles.localVideo}
           />
         )}
@@ -1528,8 +1523,8 @@ const CreatorStreamScreen = ({route}) => {
           remoteUids?.map(uid => (
             <RtcSurfaceView
               key={uid}
-              canvas={{uid, renderMode: 1}}
-              connection={{channelId: channelName, localUid}}
+              canvas={{ uid, renderMode: 1 }}
+              connection={{ channelId: channelName, localUid }}
               style={styles.remoteVideo}
             />
           ))}
@@ -1540,8 +1535,8 @@ const CreatorStreamScreen = ({route}) => {
           remoteUids.map((uid, index) => (
             <RtcSurfaceView
               key={uid}
-              canvas={{uid, renderMode: 1}}
-              connection={{channelId: channelName, localUid}}
+              canvas={{ uid, renderMode: 1 }}
+              connection={{ channelId: channelName, localUid }}
               style={index == 0 ? styles.remoteVideo2 : styles?.remoteVideo}
             />
           ))}
@@ -1582,7 +1577,7 @@ const CreatorStreamScreen = ({route}) => {
               style={{
                 color:
                   timeLeft &&
-                  Number(timeLeft.split(':')[0]) * 60 +
+                    Number(timeLeft.split(':')[0]) * 60 +
                     Number(timeLeft.split(':')[1]) <=
                     10
                     ? 'red'
@@ -1604,7 +1599,7 @@ const CreatorStreamScreen = ({route}) => {
         />
 
         {gift && (
-          <Animated.View style={[styles.giftContainer, {opacity: fadeAnim}]}>
+          <Animated.View style={[styles.giftContainer, { opacity: fadeAnim }]}>
             {(() => {
               const matchedGift = giftsData.find(g => g.title === gift.name);
 
@@ -1629,7 +1624,7 @@ const CreatorStreamScreen = ({route}) => {
 
         {bidInfo && (
           <Animated.View
-            style={[styles.giftContainer, {opacity: fadeAnim, zIndex: 2}]}>
+            style={[styles.giftContainer, { opacity: fadeAnim, zIndex: 2 }]}>
             <Text style={styles.giftText}>
               {bidInfo?._doc?.username} added a bid! of $ {bidInfo?.amount}
             </Text>
@@ -1661,7 +1656,7 @@ const CreatorStreamScreen = ({route}) => {
               ) : (
                 <Feather
                   name={'volume'}
-                  style={{marginLeft: 3}}
+                  style={{ marginLeft: 3 }}
                   size={25}
                   color="#fff"
                 />
@@ -1748,7 +1743,7 @@ const CreatorStreamScreen = ({route}) => {
             }}>
             <Ionicons name="storefront" size={20} color="#F78E1B" />
           </TouchableOpacity>
-          <Text style={{color: 'white', fontSize: 20, marginLeft: 5}}>
+          <Text style={{ color: 'white', fontSize: 20, marginLeft: 5 }}>
             ${currentBid}
           </Text>
           <View>
@@ -1756,7 +1751,7 @@ const CreatorStreamScreen = ({route}) => {
               style={{
                 color:
                   timeLeft &&
-                  Number(timeLeft.split(':')[0]) * 60 +
+                    Number(timeLeft.split(':')[0]) * 60 +
                     Number(timeLeft.split(':')[1]) <=
                     10
                     ? 'red'
@@ -1780,8 +1775,8 @@ const CreatorStreamScreen = ({route}) => {
             style={{
               backgroundColor:
                 !isLiveAuction ||
-                (endTime && Date.now() >= endTime) ||
-                isSuddenDeathZone
+                  (endTime && Date.now() >= endTime) ||
+                  isSuddenDeathZone
                   ? 'gray'
                   : 'orange',
               paddingHorizontal: 10,
@@ -1789,7 +1784,7 @@ const CreatorStreamScreen = ({route}) => {
               borderRadius: 100,
               zIndex: 10,
             }}>
-            <Text style={{color: 'white', fontSize: 14}}>Quick Bid</Text>
+            <Text style={{ color: 'white', fontSize: 14 }}>Quick Bid</Text>
           </TouchableOpacity>
         </View>
 
@@ -1805,7 +1800,7 @@ const CreatorStreamScreen = ({route}) => {
               left: '15%',
               zIndex: 2,
             }}>
-            <Text style={{color: '#fff', fontWeight: '800'}}>
+            <Text style={{ color: '#fff', fontWeight: '800' }}>
               {' '}
               {bidNotifcationData?.bidderId?.username} added a $
               {bidNotifcationData?.bidAmount} Bid
@@ -1829,13 +1824,13 @@ const CreatorStreamScreen = ({route}) => {
         {showShirts && (
           <View
             style={{
-              marginBottom: 20,
+              marginBottom: 25,
               position: 'absolute',
-              bottom: 5,
+              bottom: 10,
               width: '100%',
               justifyContent: 'center',
               alignItems: 'center',
-              zIndex: 10,
+              zIndex: 500,
               backgroundColor: 'rgba(0,0,0,0.1)',
             }}>
             {/* Show first product as main large image */}
@@ -1860,7 +1855,7 @@ const CreatorStreamScreen = ({route}) => {
                       streamInfo?.productId?.[0]?.images?.[0] ||
                       'https://via.placeholder.com/150',
                   }}
-                  style={{width: '100%', height: 250, borderRadius: 10}}
+                  style={{ width: '100%', height: 250, borderRadius: 10 }}
                 />
               </View>
 
@@ -1896,7 +1891,7 @@ const CreatorStreamScreen = ({route}) => {
                     borderRadius: 10,
                     marginBottom: 15,
                   }}>
-                  <View style={{flexDirection: 'row', gap: 10}}>
+                  <View style={{ flexDirection: 'row', gap: 10 }}>
                     <View
                       style={{
                         justifyContent: 'center',
@@ -1911,12 +1906,12 @@ const CreatorStreamScreen = ({route}) => {
                             item?.images?.[0] ||
                             'https://via.placeholder.com/150',
                         }}
-                        style={{width: 30, height: 30}}
+                        style={{ width: 30, height: 30 }}
                       />
                     </View>
 
-                    <View style={{flex: 1}}>
-                      <Text style={{color: '#fff', fontSize: 15}}>
+                    <View style={{ flex: 1 }}>
+                      <Text style={{ color: '#fff', fontSize: 15 }}>
                         {item.title}
                       </Text>
 
@@ -1927,7 +1922,7 @@ const CreatorStreamScreen = ({route}) => {
                           justifyContent: 'space-between',
                           flex: 1,
                         }}>
-                        <Text style={{color: '#fff', fontSize: 15}}>
+                        <Text style={{ color: '#fff', fontSize: 15 }}>
                           ${item.price}
                         </Text>
                       </View>
@@ -1943,8 +1938,8 @@ const CreatorStreamScreen = ({route}) => {
                       marginTop: 10,
                     }}>
                     <View>
-                      <Text style={{color: '#fff'}}>Total</Text>
-                      <Text style={{color: '#fff', fontSize: 20}}>
+                      <Text style={{ color: '#fff' }}>Total</Text>
+                      <Text style={{ color: '#fff', fontSize: 20 }}>
                         ${(item.price * quantity).toFixed(2)}
                       </Text>
                     </View>
@@ -1964,7 +1959,7 @@ const CreatorStreamScreen = ({route}) => {
                 marginBottom: 20,
                 width: '95%',
               }}>
-              <Text style={{color: '#fff', fontSize: 17}}>Close</Text>
+              <Text style={{ color: '#fff', fontSize: 17 }}>Close</Text>
             </TouchableOpacity>
           </View>
         )}
@@ -1987,7 +1982,7 @@ const CreatorStreamScreen = ({route}) => {
                 alignItems: 'center',
                 justifyContent: 'space-between',
               }}>
-              <Text style={{color: '#fff', fontSize: 17}}>Gifts</Text>
+              <Text style={{ color: '#fff', fontSize: 17 }}>Gifts</Text>
               <TouchableOpacity
                 onPress={() => setshowShirts(false)}
                 style={{
@@ -2000,14 +1995,14 @@ const CreatorStreamScreen = ({route}) => {
                   marginLeft: 10,
                 }}>
                 <AntDesign name="bank" size={13} color="#fff" />
-                <Text style={{color: '#fff', marginLeft: 5}}>
+                <Text style={{ color: '#fff', marginLeft: 5 }}>
                   {data?.coins}
                 </Text>
               </TouchableOpacity>
             </View>
 
             <View
-              style={{flexDirection: 'row', columnGap: 23, flexWrap: 'wrap'}}>
+              style={{ flexDirection: 'row', columnGap: 23, flexWrap: 'wrap' }}>
               {giftsData?.map(i => (
                 <Pressable
                   key={i?._id}
@@ -2021,11 +2016,11 @@ const CreatorStreamScreen = ({route}) => {
                     borderRadius: 10,
                   }}>
                   <Image
-                    source={{uri: i?.image}}
-                    style={{width: 80, height: 80, borderRadius: 10}}
+                    source={{ uri: i?.image }}
+                    style={{ width: 80, height: 80, borderRadius: 10 }}
                   />
                   <Text
-                    style={{color: '#fff', textAlign: 'center', marginTop: 4}}>
+                    style={{ color: '#fff', textAlign: 'center', marginTop: 4 }}>
                     {i?.title}
                   </Text>
                   <TouchableOpacity
@@ -2037,7 +2032,7 @@ const CreatorStreamScreen = ({route}) => {
                       marginTop: 5,
                     }}>
                     <AntDesign name="bank" size={13} color="orange" />
-                    <Text style={{color: '#fff', marginLeft: 5}}>
+                    <Text style={{ color: '#fff', marginLeft: 5 }}>
                       {i?.coin}
                     </Text>
                   </TouchableOpacity>
@@ -2056,7 +2051,7 @@ const CreatorStreamScreen = ({route}) => {
                 marginTop: 15,
                 borderRadius: 10,
               }}>
-              <Text style={{color: '#fff', fontSize: 17}}>Close </Text>
+              <Text style={{ color: '#fff', fontSize: 17 }}>Close </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2074,9 +2069,9 @@ const CreatorStreamScreen = ({route}) => {
               width: '95%',
               borderRadius: 10,
             }}>
-            <View style={{flexDirection: 'row', alignItems: 'center', gap: 5}}>
-              <Text style={{color: '#fff', fontSize: 17}}>Coins</Text>
-              <Text style={{color: '#fff', fontSize: 17}}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
+              <Text style={{ color: '#fff', fontSize: 17 }}>Coins</Text>
+              <Text style={{ color: '#fff', fontSize: 17 }}>
                 🪙 {data?.coins}
               </Text>
             </View>
@@ -2127,7 +2122,7 @@ const CreatorStreamScreen = ({route}) => {
                 marginTop: 15,
                 borderRadius: 10,
               }}>
-              <Text style={{color: '#fff', fontSize: 17}}>Pay Now </Text>
+              <Text style={{ color: '#fff', fontSize: 17 }}>Pay Now </Text>
             </TouchableOpacity>
             <TouchableOpacity
               onPress={() => setwallet(false)}
@@ -2140,7 +2135,7 @@ const CreatorStreamScreen = ({route}) => {
                 marginTop: 15,
                 borderRadius: 10,
               }}>
-              <Text style={{color: '#fff', fontSize: 17}}>Close </Text>
+              <Text style={{ color: '#fff', fontSize: 17 }}>Close </Text>
             </TouchableOpacity>
           </View>
         )}
@@ -2165,7 +2160,7 @@ const CreatorStreamScreen = ({route}) => {
                 flexDirection: 'row',
                 marginTop: 5,
               }}>
-              <Text style={{color: '#fff'}}>$ Add Bid</Text>
+              <Text style={{ color: '#fff' }}>$ Add Bid</Text>
             </View>
             <Text
               style={{
@@ -2206,23 +2201,23 @@ const CreatorStreamScreen = ({route}) => {
                   backgroundColor: '#343434',
                   borderRadius: 8,
                 }}>
-                <Text style={{color: '#90EE90', fontSize: 14}}>
+                <Text style={{ color: '#90EE90', fontSize: 14 }}>
                   Your Bid: ${bidAmount}
                 </Text>
                 {parseInt(bidAmount, 10) > currentBid && (
-                  <Text style={{color: '#90EE90', fontSize: 12, marginTop: 5}}>
+                  <Text style={{ color: '#90EE90', fontSize: 12, marginTop: 5 }}>
                     ✓ Valid bid amount
                   </Text>
                 )}
                 {parseInt(bidAmount, 10) <= currentBid && (
                   // && bidAmount?.trim() !== ''
-                  <Text style={{color: '#FF6B6B', fontSize: 12, marginTop: 5}}>
+                  <Text style={{ color: '#FF6B6B', fontSize: 12, marginTop: 5 }}>
                     ✗ Must be higher than ${currentBid}
                   </Text>
                 )}
               </View>
             ) : null}
-            <View style={{flexDirection: 'row', marginTop: 20}}>
+            <View style={{ flexDirection: 'row', marginTop: 20 }}>
               <TouchableOpacity
                 onPress={() => setshowBid(false)}
                 style={styles.cancelButton}>
@@ -2247,7 +2242,7 @@ const CreatorStreamScreen = ({route}) => {
               backgroundColor: '#000',
               width: '90%',
               borderRadius: 30,
-              zIndex: 2,
+              zIndex: 500,
             }}>
             <View
               style={{
@@ -2256,7 +2251,7 @@ const CreatorStreamScreen = ({route}) => {
                 flexDirection: 'row',
                 marginTop: 5,
               }}>
-              <Text style={{color: '#fff', fontSize: 30}}>Winner</Text>
+              <Text style={{ color: '#fff', fontSize: 30 }}>Winner</Text>
             </View>
             <Text
               style={{
@@ -2264,7 +2259,7 @@ const CreatorStreamScreen = ({route}) => {
                 marginVertical: 10,
                 color: '#c4c4c4',
               }}>
-              Bid Amount : ${currentBid}
+              Bid Amount : ${winnerDetails?.bidAmount}
             </Text>
             <View
               style={{
@@ -2274,9 +2269,9 @@ const CreatorStreamScreen = ({route}) => {
                 marginTop: 5,
                 gap: 10,
               }}>
-              {winnerDetails?.winnerImage && (
+              {winnerDetails?.profile && (
                 <Image
-                  source={{uri: winnerDetails?.winnerImage}}
+                  source={{ uri: winnerDetails?.profile }}
                   style={{
                     width: 40,
                     height: 40,
@@ -2285,14 +2280,14 @@ const CreatorStreamScreen = ({route}) => {
                   }}
                 />
               )}
-              <Text style={{color: '#fff', fontSize: 15}}>
-                {winnerDetails?.winnerName} has won the bidding
+              <Text style={{ color: '#fff', fontSize: 15 }}>
+                {winnerDetails?.username} has won the bidding
               </Text>
             </View>
-            <View style={{flexDirection: 'row', marginTop: 20}}>
+            <View style={{ flexDirection: 'row', marginTop: 20 }}>
               <TouchableOpacity
                 onPress={() => setBiddingWinner(false)}
-                style={[styles.cancelButton, {flex: 1}]}>
+                style={[styles.cancelButton, { flex: 1 }]}>
                 <Text style={styles.cancelText}>Close</Text>
               </TouchableOpacity>
             </View>
@@ -2318,7 +2313,7 @@ const CreatorStreamScreen = ({route}) => {
                 flexDirection: 'row',
                 marginTop: 5,
               }}>
-              <Text style={{color: '#fff', fontSize: 24, fontWeight: 'bold'}}>
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
                 Auction Ended
               </Text>
             </View>
@@ -2339,7 +2334,7 @@ const CreatorStreamScreen = ({route}) => {
               }}>
               <TouchableOpacity
                 onPress={() => setShowAuctionEndPrompt(false)}
-                style={[styles.cancelButton, {flex: 1, marginRight: 8}]}>
+                style={[styles.cancelButton, { flex: 1, marginRight: 8 }]}>
                 <Text style={styles.cancelText}>Later</Text>
               </TouchableOpacity>
               <TouchableOpacity
@@ -2347,7 +2342,7 @@ const CreatorStreamScreen = ({route}) => {
                   setShowAuctionEndPrompt(false);
                   setShowInitiateAuctionModal(true);
                 }}
-                style={[styles.startAuctionButton, {flex: 1, marginLeft: 8}]}>
+                style={[styles.startAuctionButton, { flex: 1, marginLeft: 8 }]}>
                 <Text style={styles.startAuctionText}>Start New Auction</Text>
               </TouchableOpacity>
             </View>
@@ -2373,7 +2368,7 @@ const CreatorStreamScreen = ({route}) => {
                 flexDirection: 'row',
                 marginTop: 5,
               }}>
-              <Text style={{color: '#fff', fontSize: 24, fontWeight: 'bold'}}>
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
                 New Auction Incoming
               </Text>
             </View>
@@ -2395,7 +2390,7 @@ const CreatorStreamScreen = ({route}) => {
               }}>
               <TouchableOpacity
                 onPress={() => setShowAuctionStartNotice(false)}
-                style={[styles.startAuctionButton, {flex: 1}]}>
+                style={[styles.startAuctionButton, { flex: 1 }]}>
                 <Text style={styles.startAuctionText}>Okay</Text>
               </TouchableOpacity>
             </View>
@@ -2421,12 +2416,12 @@ const CreatorStreamScreen = ({route}) => {
                 flexDirection: 'row',
                 marginTop: 5,
               }}>
-              <Text style={{color: '#fff', fontSize: 24, fontWeight: 'bold'}}>
+              <Text style={{ color: '#fff', fontSize: 24, fontWeight: 'bold' }}>
                 Start Auction
               </Text>
             </View>
             {selectedProductForAuction && (
-              <View style={{alignItems: 'center', marginVertical: 15}}>
+              <View style={{ alignItems: 'center', marginVertical: 15 }}>
                 <Image
                   source={{
                     uri:
@@ -2441,23 +2436,23 @@ const CreatorStreamScreen = ({route}) => {
                   }}
                 />
                 <Text
-                  style={{color: '#fff', fontSize: 16, textAlign: 'center'}}>
+                  style={{ color: '#fff', fontSize: 16, textAlign: 'center' }}>
                   {selectedProductForAuction?.title}
                 </Text>
-                <Text style={{color: '#C4C4C4', fontSize: 14}}>
+                <Text style={{ color: '#C4C4C4', fontSize: 14 }}>
                   Price: ${selectedProductForAuction?.price}
                 </Text>
               </View>
             )}
-            <View style={{marginTop: 10}}>
-              <Text style={{color: '#fff', fontSize: 16, marginBottom: 5}}>
+            <View style={{ marginTop: 10 }}>
+              <Text style={{ color: '#fff', fontSize: 16, marginBottom: 5 }}>
                 Starting Bid ($)
               </Text>
               <TextInput
                 keyboardType="numeric"
                 value={auctionFormData.startingBid}
                 onChangeText={text =>
-                  setAuctionFormData({...auctionFormData, startingBid: text})
+                  setAuctionFormData({ ...auctionFormData, startingBid: text })
                 }
                 placeholder="Enter starting bid"
                 placeholderTextColor="#999"
@@ -2473,14 +2468,14 @@ const CreatorStreamScreen = ({route}) => {
                   marginBottom: 15,
                 }}
               />
-              <Text style={{color: '#fff', fontSize: 16, marginBottom: 5}}>
+              <Text style={{ color: '#fff', fontSize: 16, marginBottom: 5 }}>
                 Duration (seconds)
               </Text>
               <TextInput
                 keyboardType="numeric"
                 value={auctionFormData.duration}
                 onChangeText={text =>
-                  setAuctionFormData({...auctionFormData, duration: text})
+                  setAuctionFormData({ ...auctionFormData, duration: text })
                 }
                 placeholder="Enter duration in seconds"
                 placeholderTextColor="#999"
@@ -2523,15 +2518,15 @@ const CreatorStreamScreen = ({route}) => {
                     alignItems: 'center',
                   }}>
                   {auctionFormData.suddenDeathEnabled && (
-                    <Text style={{color: '#fff', fontSize: 12}}>✓</Text>
+                    <Text style={{ color: '#fff', fontSize: 12 }}>✓</Text>
                   )}
                 </TouchableOpacity>
-                <Text style={{color: '#fff', fontSize: 14}}>
+                <Text style={{ color: '#fff', fontSize: 14 }}>
                   Enable Sudden Death
                 </Text>
               </View>
             </View>
-            <View style={{flexDirection: 'row', marginTop: 20}}>
+            <View style={{ flexDirection: 'row', marginTop: 20 }}>
               <TouchableOpacity
                 onPress={() => {
                   setShowInitiateAuctionModal(false);
@@ -2567,8 +2562,7 @@ const CreatorStreamScreen = ({route}) => {
                     source={{
                       uri:
                         item.userId?.profile ||
-                        `https://randomuser.me/api/portraits/men/${
-                          index + 1
+                        `https://randomuser.me/api/portraits/men/${index + 1
                         }.jpg`,
                     }}
                     style={styles.commentAvatar}
@@ -2612,14 +2606,14 @@ const CreatorStreamScreen = ({route}) => {
                         uri:
                           i?.images?.[0] || 'https://via.placeholder.com/150',
                       }}
-                      style={{width: 50, height: 50, borderRadius: 10}}
+                      style={{ width: 50, height: 50, borderRadius: 10 }}
                     />
                     <View>
-                      <Text style={{color: 'white'}}>{i?.title}</Text>
-                      <Text style={{color: '#C4C4C4'}}>
+                      <Text style={{ color: 'white' }}>{i?.title}</Text>
+                      <Text style={{ color: '#C4C4C4' }}>
                         In stock - {i?.stock}
                       </Text>
-                      <Text style={{color: 'white'}}>$ {i?.price}</Text>
+                      <Text style={{ color: 'white' }}>$ {i?.price}</Text>
                     </View>
                   </View>
                   {Host && (
@@ -2635,7 +2629,7 @@ const CreatorStreamScreen = ({route}) => {
                         justifyContent: 'center',
                         alignItems: 'center',
                       }}>
-                      <Text style={{color: '#fff', fontSize: 20}}>+</Text>
+                      <Text style={{ color: '#fff', fontSize: 20 }}>+</Text>
                     </Pressable>
                   )}
                 </View>
@@ -2661,7 +2655,7 @@ const CreatorStreamScreen = ({route}) => {
                 onChangeText={setMessage}
                 placeholderTextColor={'#fff'}
               />
-              <TouchableOpacity style={{marginLeft: 15}} onPress={handleSend}>
+              <TouchableOpacity style={{ marginLeft: 15 }} onPress={handleSend}>
                 <FontAwesome name="send" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
@@ -2685,7 +2679,7 @@ const CreatorStreamScreen = ({route}) => {
                 setshowGifts(true);
               }}
               style={styles.commanStyle}>
-              <Image source={giftImg} style={{width: 20, height: 20}} />
+              <Image source={giftImg} style={{ width: 20, height: 20 }} />
             </Pressable>
             <Pressable
               disabled={isSuddenDeathZone}
@@ -2696,7 +2690,7 @@ const CreatorStreamScreen = ({route}) => {
                 ...styles.commanStyle,
                 backgroundColor: isSuddenDeathZone ? '#555' : '#F78E1B',
               }}>
-              <Image source={dollarImg} style={{width: 20, height: 20}} />
+              <Image source={dollarImg} style={{ width: 20, height: 20 }} />
             </Pressable>
           </View>
         </View>
@@ -2771,7 +2765,7 @@ const styles = StyleSheet.create({
     // backgroundColor: 'rgba(0,0,0,0.5)',
     top: 80,
     left: '30%',
-    transform: [{translateX: -50}],
+    transform: [{ translateX: -50 }],
     backgroundColor: 'rgba(52, 52, 52, 0.8)',
     padding: 10,
     borderRadius: 10,
@@ -2846,7 +2840,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: {width: 0, height: 2},
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.8,
         shadowRadius: 5,
       },
@@ -2899,7 +2893,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: {width: 0, height: 2},
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.8,
         shadowRadius: 5,
       },
@@ -2914,7 +2908,7 @@ const styles = StyleSheet.create({
     ...Platform.select({
       ios: {
         shadowColor: '#000',
-        shadowOffset: {width: 0, height: 2},
+        shadowOffset: { width: 0, height: 2 },
         shadowOpacity: 0.8,
         shadowRadius: 5,
       },

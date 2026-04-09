@@ -39,6 +39,7 @@ const SellerProductsScreen = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
+                console.log(res?.data?.data, 'ressss')
                 setProducts(res?.data?.data);
                 setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
             }
@@ -58,7 +59,7 @@ const SellerProductsScreen = () => {
 
     const handleDeleteProduct = async (productId) => {
         try {
-            await axios.patch(`${config.baseUrl}/product/del/${productId}`, { isDeleted: true });
+            await axios.delete(`${config.baseUrl}/product/del/${productId}`, { isDeleted: true });
             setShowDeleteModal(false);
             setSelectedProduct(null);
             ToastAndroid.show('Product deleted successfully!', ToastAndroid.SHORT);
