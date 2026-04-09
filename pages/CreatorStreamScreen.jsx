@@ -258,16 +258,16 @@ const CreatorStreamScreen = ({ route }) => {
       if (info.mode === 'AUCTION' && info.endTime) {
         // setEndTime(new Date(info.endTime).getTime());
       } else {
-        setEndTime(null);
+        // setEndTime(null);
       }
       if (info.mode === 'AUCTION') {
         setSuddenDeathEnabled(info.suddenDeath === true);
         setSuddenDeathThreshold(info.suddenDeathThresholdSeconds || 10);
         setSuddenDeathExtension(info.suddenDeathExtensionSeconds || 10);
 
-        if (info.endTime) {
-          setEndTime(new Date(info.endTime).getTime());
-        }
+        // if (info.endTime) {
+        //   setEndTime(new Date(info.endTime).getTime());
+        // }
       }
       // fetchBiddings()
       // fetchAuctionInfo();
@@ -293,46 +293,46 @@ const CreatorStreamScreen = ({ route }) => {
     }
   };
 
-  const fetchBiddings = async () => {
-    console.log(
-      'Fetching biddings for streamId:',
-      streamId,
-      'with auctionId:',
-      streamInfo?.auctionIds?.[0],
-    );
-    try {
-      // console.log("📥 Fetching biddings for streamId:", streamId);
-      const res = await axios.get(
-        `${config.baseUrl}/bidding/by-auction-stream`,
-        {
-          params: {
-            auctionId: auctionDetails?.[0]?._id,
-            streamId: streamInfo?._id,
-          },
-        },
-      );
-      console.log('📊 Biddings API Response:', res?.data?.data);
-      console.log(res);
-      if (res?.data?.data) {
-        console.log('✅ Biddings updated. Count:', res.data.data.length);
-        setBiddings(res.data.data);
-        // keep highest bid synced
-        if (res.data.data.length > 0) {
-          const highestBid = res?.data?.data?.[0]?.bidAmount;
-          setCurrentBid(highestBid);
-          // console.log("💰 Highest bid set to:", highestBid);
-          // console.log("🏆 Current leader:", res.data.data[0].bidderId?.username);
-        } else {
-          // console.log("⚠️ No bids yet");
-        }
-      } else {
-        // console.warn("⚠️ No biddings data in response:", res?.data);
-      }
-    } catch (err) {
-      console.log(err);
-      console.error('❌ Error fetching bids:', err.message);
-    }
-  };
+  // const fetchBiddings = async () => {
+  //   console.log(
+  //     'Fetching biddings for streamId:',
+  //     streamId,
+  //     'with auctionId:',
+  //     streamInfo?.auctionIds?.[0],
+  //   );
+  //   try {
+  //     // console.log("📥 Fetching biddings for streamId:", streamId);
+  //     const res = await axios.get(
+  //       `${config.baseUrl}/bidding/by-auction-stream`,
+  //       {
+  //         params: {
+  //           auctionId: auctionDetails?.[0]?._id,
+  //           streamId: streamInfo?._id,
+  //         },
+  //       },
+  //     );
+  //     console.log('📊 Biddings API Response:', res?.data?.data);
+  //     console.log(res);
+  //     if (res?.data?.data) {
+  //       console.log('✅ Biddings updated. Count:', res.data.data.length);
+  //       setBiddings(res.data.data);
+  //       // keep highest bid synced
+  //       if (res.data.data.length > 0) {
+  //         const highestBid = res?.data?.data?.[0]?.bidAmount;
+  //         setCurrentBid(highestBid);
+  //         // console.log("💰 Highest bid set to:", highestBid);
+  //         // console.log("🏆 Current leader:", res.data.data[0].bidderId?.username);
+  //       } else {
+  //         // console.log("⚠️ No bids yet");
+  //       }
+  //     } else {
+  //       // console.warn("⚠️ No biddings data in response:", res?.data);
+  //     }
+  //   } catch (err) {
+  //     console.log(err);
+  //     console.error('❌ Error fetching bids:', err.message);
+  //   }
+  // };
   const fetchToken = async () => {
     try {
       let res = await axios.get(
