@@ -37,7 +37,7 @@ const CreateProductScreen = () => {
     const route = useRoute();
     const editProduct = route.params?.product;
     const isEdit = route.params?.isEdit || false;
-    
+
     const [price, setPrice] = useState('');
     const [currentStep, setCurrentStep] = useState(1);
     const [productImages, setProductImages] = useState([]);
@@ -59,6 +59,7 @@ const CreateProductScreen = () => {
 
     const [isStep1Valid, setIsStep1Valid] = useState(false);
     const [isStep2Valid, setIsStep2Valid] = useState(false);
+    const [ispublishing, setIsPublishing] = useState(false);
 
     // Load product data if editing
     useEffect(() => {
@@ -167,10 +168,11 @@ const CreateProductScreen = () => {
     const handlePublish = async () => {
         try {
             const userId = await AsyncStorage.getItem("userId");
-
+            console.log("Edit or New:", isEdit)
+            setIsPublishing(true);
             if (isEdit && editProduct?._id) {
                 // Update existing product - separate APIs for details and images
-                
+
                 // Step 1: Update product details
                 const detailsFormData = new FormData();
                 detailsFormData.append("userId", userId);
@@ -224,7 +226,7 @@ const CreateProductScreen = () => {
                             );
                         }
                     }
-
+                    setIsPublishing(false);
                     ToastAndroid.show("Product Updated Successfully!", ToastAndroid.SHORT);
                     navigation.goBack();
                 }
@@ -254,20 +256,22 @@ const CreateProductScreen = () => {
                         name: `product_${index}.jpg`
                     });
                 });
-
+                console.log("formData:", formData)
                 const response = await axios.post(`${config.baseUrl}/product/create`, formData, {
                     headers: {
                         "Content-Type": "multipart/form-data",
                     },
                 });
-
+                console.log("Create product response:", JSON.stringify(response.data));
                 if (response.status === 200) {
                     ToastAndroid.show("Product Published!", ToastAndroid.SHORT);
+                    setIsPublishing(false);
                     navigation.goBack();
                 }
             }
         } catch (error) {
             console.log("Product error:", JSON.stringify(error));
+            setIsPublishing(false);
             ToastAndroid.show(isEdit ? "Failed to update product" : "Failed to publish product", ToastAndroid.SHORT);
         }
     };
@@ -336,13 +340,13 @@ const CreateProductScreen = () => {
                         </TouchableOpacity>
                     ) : (
                         <View style={styles.uploadedImagesGrid}>
-                            <TouchableOpacity 
+                            <TouchableOpacity
                                 onPress={handleImagePick}
                                 style={styles.mainImageWrapper}
                             >
                                 <Image source={{ uri: productImages[0] }} style={styles.mainUploadedImage} />
-                                <TouchableOpacity 
-                                    onPress={() => handleRemoveImage(productImages[0])} 
+                                <TouchableOpacity
+                                    onPress={() => handleRemoveImage(productImages[0])}
                                     style={[styles.removeImageButton, { top: 10, right: 10 }]}
                                 >
                                     <FontAwesome5 name="times-circle" size={20} color="red" solid />
@@ -409,14 +413,14 @@ const CreateProductScreen = () => {
                     <View style={styles.descriptionInputContainer}>
                         <View style={styles.descriptionToolbar}>
                             <Text style={styles.descriptionParagraph}>Paragraph</Text>
-                            <View style={styles.descriptionIcons}>
+                            {/* <View style={styles.descriptionIcons}>
                                 <FontAwesome5 name="bold" size={16} color="#fff" style={styles.descriptionIcon} />
                                 <FontAwesome5 name="italic" size={16} color="#fff" style={styles.descriptionIcon} />
                                 <FontAwesome5 name="underline" size={16} color="#fff" style={styles.descriptionIcon} />
                                 <FontAwesome5 name="align-left" size={16} color="#fff" style={styles.descriptionIcon} />
                                 <FontAwesome5 name="list-ul" size={16} color="#fff" style={styles.descriptionIcon} />
                                 <FontAwesome5 name="list-ol" size={16} color="#fff" style={styles.descriptionIcon} />
-                            </View>
+                            </View> */}
                         </View>
                         <TextInput
                             style={[styles.textInput, styles.descriptionTextInput]}
@@ -563,7 +567,7 @@ const CreateProductScreen = () => {
                             };
                             const bgColor = colorMap[color] || '#333';
                             const isSelected = selectedColors.includes(color);
-                            
+
                             return (
                                 <TouchableOpacity
                                     key={color}
@@ -607,9 +611,10 @@ const CreateProductScreen = () => {
                 </TouchableOpacity>
             ) : (
                 <TouchableOpacity
-                    style={[styles.bottomButton, !(categories.length > 0 && searchTags.length > 0 && minimumQuantity && weight && dimension && shippingOption && selectedColors.length > 0) ? styles.buttonDisabled : styles.buttonEnabled]}
+                    style={[styles.bottomButton, !(categories.length > 0 && searchTags.length > 0 && minimumQuantity && weight && dimension && shippingOption && selectedColors.length > 0) ? styles.buttonDisabled : ispublishing ? styles.buttonDisabled : styles.buttonEnabled]}
                     onPress={handlePublish}
-                    disabled={!(categories.length > 0 && searchTags.length > 0 && minimumQuantity && weight && dimension && shippingOption && selectedColors.length > 0)}
+
+                    disabled={!(categories.length > 0 && searchTags.length > 0 && minimumQuantity && weight && dimension && shippingOption && selectedColors.length > 0) || ispublishing}
                 >
                     <Text style={styles.bottomButtonText}>Publish</Text>
                 </TouchableOpacity>

@@ -33,6 +33,7 @@ const ProfileScreen = () => {
         try {
             let userId = await AsyncStorage.getItem('userId');
             let res = await axios.get(`${config.baseUrl2}/account/single/${userId}`);
+            console.log('profile info response:', res)
             if (res?.data) {
                 setData(res?.data?.data);
                 setSellerMode(res?.data?.data?.sellerMode);
@@ -49,32 +50,21 @@ const ProfileScreen = () => {
         try {
             let userId = await AsyncStorage.getItem('userId');
             let res = await axios.put(`${config.baseUrl2}/account/switch/profile/${userId}`, { sellerMode: value });
+            console.log('switch response:', res)
             if (res?.data) {
                 ToastAndroid.show('Mode Changed Successfully!', ToastAndroid.SHORT);
                 setSellerMode(value);
-                fetchProfileInfo();
+                setData(res?.data?.data);
+                setSellerMode(res?.data?.data?.sellerMode);
+                if (res?.data?.data?.profile) {
+                    setImage(res?.data?.data?.profile);
+                }
+                // fetchProfileInfo();
             }
         } catch (error) {
             console.log(error);
         }
     };
-
-    const pickImage = async () => {
-        const options = { mediaType: 'photo', quality: 0.5, includeBase64: false, };
-        launchImageLibrary(options, (response) => {
-            if (response.didCancel) {
-            }
-            else if (response.error) {
-                console.log('ImagePicker Error:', response.error);
-            }
-            else {
-                const selectedImage = response.assets[0].uri;
-                setImage(selectedImage);
-                updateImage(selectedImage);
-            }
-        });
-    };
-
     const updateImage = async (imageUri) => {
         try {
             let userId = await AsyncStorage.getItem('userId');
@@ -89,6 +79,7 @@ const ProfileScreen = () => {
                 headers: { 'Content-Type': 'multipart/form-data' },
             });
 
+            console.log('update image response:', res)
             if (res?.data) {
                 ToastAndroid.show('Profile Image Updated!', ToastAndroid.SHORT);
                 fetchProfileInfo();
@@ -98,6 +89,58 @@ const ProfileScreen = () => {
             console.log(error);
         }
     };
+    // const pickImage = async () => {
+    //     const options = { mediaType: 'photo', quality: 0.5, includeBase64: false, };
+    //     launchImageLibrary(options, (response) => {
+    //         console.log('image picker response:', response)
+    //         if (response.didCancel) {
+    //             ToastAndroid.show('Image selection cancelled', ToastAndroid.SHORT);
+    //         }
+    //         else if (response.error) {
+    //             console.log('ImagePicker Error:', response.error);
+    //             ToastAndroid.show('Error selecting image', ToastAndroid.SHORT);
+    //         }
+    //         else {
+    //             const selectedImage = response?.assets?.[0]?.uri;
+    //             updateImage(selectedImage);
+    //             setImage(selectedImage);
+
+    //             // ToastAndroid.show('Image selected successfully', ToastAndroid.SHORT);
+    //         }
+    //     });
+    // };
+const pickImage = async () => {
+    try {
+        const result = await launchImageLibrary({
+            mediaType: 'photo',
+            quality: 0.5,
+        });
+
+        if (result.didCancel) {
+            ToastAndroid.show('Cancelled', ToastAndroid.SHORT);
+            return;
+        }
+
+        if (result.errorCode) {
+            throw new Error(result.errorMessage);
+        }
+
+        const image = result?.assets?.[0]?.uri;
+
+        if (!image) {
+            ToastAndroid.show('No image selected', ToastAndroid.SHORT);
+            return;
+        }
+
+        updateImage(image);
+        setImage(image);
+
+    } catch (err) {
+        console.log(err);
+        ToastAndroid.show('Image selection failed', ToastAndroid.SHORT);
+    }
+};
+
 
     const handleSubscribe = async () => {
 

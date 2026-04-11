@@ -60,8 +60,8 @@ const CreateStreamScreen = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
-                setProducts(res?.data?.data);
-                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory) && x?.isDeleted === false || null) : res?.data?.data?.filter((x) => x?.isDeleted === false || null))
+                setProducts(res?.data?.data?.filter((x) => x?.isDeleted !== true));
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory) && x?.isDeleted !== true) : res?.data?.data?.filter((x) => x?.isDeleted !== true))
             }
         }
         catch (error) {
@@ -136,15 +136,15 @@ const CreateStreamScreen = () => {
     //     }
     //     return 1;
     // };
-const convertTimeToMinutes = (timeString) => {
-    if (timeString.includes("s")) {
-        return parseInt(timeString.replace("s", ""));
-    }
-    if (timeString.includes("m")) {
-        return parseInt(timeString.replace("m", "")) * 60;
-    }
-    return 60;
-};
+    const convertTimeToMinutes = (timeString) => {
+        if (timeString.includes("s")) {
+            return parseInt(timeString.replace("s", ""));
+        }
+        if (timeString.includes("m")) {
+            return parseInt(timeString.replace("m", "")) * 60;
+        }
+        return 60;
+    };
     const handleStartStream = async () => {
         let creatorId = await AsyncStorage.getItem('userId');
 
@@ -211,7 +211,7 @@ const convertTimeToMinutes = (timeString) => {
                 if (selectedTab?.toUpperCase() === "AUCTION") {
                     try {
                         // await 
-                         const res = axios.post(`${config.baseUrl}/auction/create`, {
+                        const res = axios.post(`${config.baseUrl}/auction/create`, {
                             streamId: stream._id,
                             productId: data.productId[0] || data.productId,
                             startingBid: Number(data.startingBid),

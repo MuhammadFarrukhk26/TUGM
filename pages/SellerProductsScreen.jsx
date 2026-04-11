@@ -40,8 +40,8 @@ const SellerProductsScreen = () => {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
                 console.log(res?.data?.data, 'ressss')
-                setProducts(res?.data?.data);
-                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
+                setProducts(res?.data?.data?.filter((x) => x?.isDeleted !== true));
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) && x?.isDeleted !== true : res?.data?.data?.filter((x) => x?.isDeleted !== true));
             }
         }
         catch (error) {

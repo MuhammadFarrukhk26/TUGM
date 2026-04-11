@@ -52,7 +52,7 @@ const HomeScreen = () => {
             setUid(userId)
             let res = await axios.get(`${config.baseUrl2}/stream/live`);
             if (res?.data) {
-                console.log('Auction list',res?.data?.data)
+                console.log('Auction list', res?.data?.data)
                 setStreams(res?.data?.data);
             }
         }
@@ -64,8 +64,8 @@ const HomeScreen = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/product/all`);
             if (res?.data) {
-                setProducts(res?.data?.data);
-                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) : res?.data?.data)
+                setProducts(res?.data?.data?.filter((x) => x?.isDeleted !== true));
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) && x?.isDeleted !== true : res?.data?.data?.filter((x) => x?.isDeleted !== true));
             }
         }
         catch (error) {
@@ -87,6 +87,7 @@ const HomeScreen = () => {
         try {
             let userId = await AsyncStorage.getItem('userId');
             let res = await axios.get(`${config.baseUrl2}/account/single/${userId}`);
+            console.log('profile info response:', res)
             if (res?.data) {
                 setprofileData(res?.data?.data);
             }
