@@ -183,7 +183,7 @@ const pickImage = async () => {
     }, []);
     const logout = async () => {
         dispatch(clearCart());
-        await AsyncStorage.removeItem('userId')
+        // await AsyncStorage.removeItem('userId')
         navigation.navigate('Login');
     }
     return (

@@ -6,17 +6,26 @@ import AntDesign from 'react-native-vector-icons/AntDesign';
 import config from "../config";
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useNavigation } from '@react-navigation/core';
+import { useFocusEffect, useNavigation } from '@react-navigation/core';
+import { useRoute } from '@react-navigation/native';
 
 
 const SellerProductsScreen = () => {
     const navigation = useNavigation();
+    const route = useRoute();
     const [activeCategory, setActiveCategory] = useState('');
     const [categories, setCategories] = useState([])
     const [products, setProducts] = useState([])
     const [filteredProducts, setFilterProducts] = useState([])
     const [selectedProduct, setSelectedProduct] = useState(null);
     const [showDeleteModal, setShowDeleteModal] = useState(false);
+    // useEffect(() => {
+    //     if (route.params?.refresh) {
+    //         // do something
+    //         fetchCategory();
+    //         fetchProduct()
+    //     }
+    // }, [route.params?.refresh]);
     const handleCategoryPress = (category) => {
         setActiveCategory(category);
         const filtered = products?.filter(product => product?.categories?.includes(category));
@@ -38,10 +47,11 @@ const SellerProductsScreen = () => {
         let userId = await AsyncStorage.getItem('userId');
         try {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
+            console.log(res, 'ressss')
             if (res?.data) {
                 console.log(res?.data?.data, 'ressss')
                 setProducts(res?.data?.data?.filter((x) => x?.isDeleted !== true));
-                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory)) && x?.isDeleted !== true : res?.data?.data?.filter((x) => x?.isDeleted !== true));
+                setFilterProducts(activeCategory ? res?.data?.data?.filter((x) => x?.categories?.includes(activeCategory) && x?.isDeleted !== true) : res?.data?.data?.filter((x) => x?.isDeleted !== true));
             }
         }
         catch (error) {
@@ -52,7 +62,11 @@ const SellerProductsScreen = () => {
         fetchCategory();
         fetchProduct()
     }, []);
+    // useFocusEffect(() => {
+    //     fetchProduct();
+    //     fetchCategory();
 
+    // }, [])
     const handleUpdateProduct = (product) => {
         navigation.navigate("CreateProduct", { product: product, isEdit: true });
     };

@@ -228,7 +228,11 @@ const CreateProductScreen = () => {
                     }
                     setIsPublishing(false);
                     ToastAndroid.show("Product Updated Successfully!", ToastAndroid.SHORT);
-                    navigation.goBack();
+                    navigation.navigate({
+                        name: 'SellerProducts',
+                        params: { refresh: true },
+                        merge: true,
+                    });
                 }
             } else {
                 // Create new product
@@ -407,6 +411,7 @@ const CreateProductScreen = () => {
                         placeholderTextColor="#666"
                         value={productTitle}
                         onChangeText={setProductTitle}
+                        editable={!ispublishing}
                     />
 
                     <Text style={styles.inputLabel}>Product description</Text>
@@ -430,6 +435,7 @@ const CreateProductScreen = () => {
                             value={productDescription}
                             onChangeText={setProductDescription}
                             textAlignVertical="top"
+                            editable={!ispublishing}
                         />
                     </View>
                 </View>
@@ -455,6 +461,7 @@ const CreateProductScreen = () => {
                             onChangeText={setNewCategory}
                             onSubmitEditing={addCategory}
                             returnKeyType="done"
+                            editable={!ispublishing}
                         />
                     </View>
 
@@ -476,6 +483,7 @@ const CreateProductScreen = () => {
                             onChangeText={setNewSearchTag}
                             onSubmitEditing={addSearchTag}
                             returnKeyType="done"
+                            editable={!ispublishing}
                         />
                     </View>
 
@@ -487,6 +495,7 @@ const CreateProductScreen = () => {
                         keyboardType="numeric"
                         value={minimumQuantity}
                         onChangeText={setMinimumQuantity}
+                        editable={!ispublishing}
                     />
 
                     <Text style={styles.sectionTitle}>Weight</Text>
@@ -498,6 +507,7 @@ const CreateProductScreen = () => {
                             keyboardType="numeric"
                             value={weight}
                             onChangeText={setWeight}
+                            editable={!ispublishing}
                         />
                         <Text style={styles.inlineInputLabel}>oz</Text>
                     </View>
@@ -510,6 +520,7 @@ const CreateProductScreen = () => {
                             placeholderTextColor="#666"
                             value={dimension}
                             onChangeText={setDimension}
+                            editable={!ispublishing}
                         />
                         <Text style={styles.inlineInputLabel}>in</Text>
                     </View>
@@ -596,7 +607,7 @@ const CreateProductScreen = () => {
                     </View>
 
                     <Text style={styles.sectionTitle}>Price</Text>
-                    <TextInput style={styles.textInput} placeholder="100" placeholderTextColor="#666" keyboardType="numeric" value={price} onChangeText={setPrice} />
+                    <TextInput style={styles.textInput} placeholder="100" placeholderTextColor="#666" keyboardType="numeric" value={price} aria-disabled={ispublishing} onChangeText={setPrice} editable={!ispublishing} />
                 </View>
             )}
 

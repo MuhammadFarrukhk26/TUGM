@@ -286,6 +286,18 @@ const CreatorStreamScreen = ({ route }) => {
       setHighestBidder(info?.[0]?.highestBidder || null);
       setCurrentBid(info?.[0]?.currentBid || info?.[0]?.startingBid);
       // console.log('EndTime:', new Date(info?.[0]?.endTime).getTime());
+
+      const end = new Date(info?.[0]?.endTime).getTime();
+      const now = Date.now();
+      const diff = end - now;
+      console.log('Time left (ms):', diff);
+     const start = new Date(info?.[0]?.startTime).getTime();
+     const duration = end - start;
+     const timeStart = start - now;
+     setTimeLeft(duration > 0 ? new Date(duration)?.getTime()?.toString() : '00:00');
+      // setTimeLeft(diff > 0 ? new Date(diff).toISOString().substr(11, 8) : '00:00');
+     
+     
       setEndTime(new Date(info?.[0]?.endTime).getTime());
       // fetchBiddings()
     } catch (err) {
@@ -354,9 +366,14 @@ const CreatorStreamScreen = ({ route }) => {
   const isActualCreator = () => {
     const isCreator =
       uId && streamInfo?.creatorId?._id && uId === streamInfo.creatorId._id;
+    // console.log('Checking creator permissions:', isCreator)
+    // console.log('uId:', uId)
+    // console.log('streamInfo?.creatorId?._id:', streamInfo?.creatorId?._id)
+
     return isCreator;
   };
-
+  // console.log('Stream Info:', streamInfo);
+  // console.log('Stream creator?:', isActualCreator());
   const handleEndStream = async () => {
     // Verify user is the actual stream creator (not just isHost flag)
     if (!isActualCreator()) {
@@ -925,7 +942,7 @@ const CreatorStreamScreen = ({ route }) => {
         suddenDeath: auctionFormData.suddenDeathEnabled,
         mode: 'AUCTION',
       };
-
+      console.log('Submitting auction with data:', auctionData);
       const res = await axios.post(
         `${config.baseUrl}/auction/create`,
         auctionData,
@@ -1130,7 +1147,7 @@ const CreatorStreamScreen = ({ route }) => {
             // else 
             if (
               streamInfo &&
-              auctionDetails 
+              auctionDetails
               // highestBidder
             ) {
               const winningBid = highestBidder || auctionDetails?.[0]?.highestBidder;
@@ -1570,7 +1587,7 @@ const CreatorStreamScreen = ({ route }) => {
               flexDirection: 'row',
               justifyContent: 'center',
               alignItems: 'center',
-              zIndex: 2,
+              zIndex: 200,
               backgroundColor: 'rgba(0,0,0,0.6)',
             }}>
             <Text

@@ -90,7 +90,8 @@ const CompetitionsSettings = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/product/user/${userId}`)
             if (res?.data) {
-                setProducts(res?.data?.data);
+                // setProducts(res?.data?.data);
+                   setProducts(res?.data?.data?.filter((x) => x?.isDeleted !== true));
             }
         }
         catch (error) {
