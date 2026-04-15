@@ -21,7 +21,7 @@ import MyOrdersScreen from './pages/MyOrdersScreen_Old';
 import SellerOrdersScreen from './pages/SellerOrdersScreen';
 import SellerProductsScreen from './pages/SellerProductsScreen';
 import CreateProductScreen from './pages/CreateProductScreen';
-import CreatorStreamScreen from './pages/CreatorStreamScreen';
+import CreatorStreamScreen from './pages/CreatorStreamScreen_NEW';
 import AdsScreen from './pages/AdsScreen';
 import Notification from './pages/Notification';
 import Shipments from './pages/Shipment';
