@@ -1,15 +1,18 @@
 import { useNavigation, useRoute } from '@react-navigation/core';
 import React, { useEffect, useState } from 'react'
-import { Image, Pressable, ScrollView, Text, View, StyleSheet, ActivityIndicator } from 'react-native'
+import { Image, Pressable, ScrollView, Text, View, StyleSheet, ActivityIndicator, Touchable, TouchableOpacity, ToastAndroid } from 'react-native'
 import Ionicons from 'react-native-vector-icons/Ionicons';
 import Entypo from 'react-native-vector-icons/Entypo';
 import review from "../assets/product/review.png";
 import axios from 'axios';
 import config from '../config';
+import { useDispatch } from 'react-redux';
+import { addToCart } from '../redux/cartSlice';
 
 const SingleProductPage = () => {
 
     const navigation = useNavigation();
+    const dispatch = useDispatch();
     const route = useRoute();
     const { productId } = route.params;
     const [product, setProduct] = useState(null);
@@ -30,6 +33,15 @@ const SingleProductPage = () => {
             </>
         );
     };
+    const handleCheckout = (product) => {
+        handleAddToCard(product);
+        navigation.navigate("Cart")
+    };
+    const handleAddToCard = (product) => {
+        ToastAndroid.show('Item Added In Cart', ToastAndroid.SHORT);
+        dispatch(addToCart({ ...product, quantity: 1 }));
+    };
+
     useEffect(() => {
         const fetchProduct = async () => {
             try {
@@ -198,6 +210,11 @@ const SingleProductPage = () => {
                         </View>
                     </Pressable>
                 ))}
+                <View style={styles.bottomBar}>
+                    <TouchableOpacity style={styles.checkoutButton} onPress={() => handleCheckout(product)}>
+                        <Text style={styles.checkoutButtonText}>Add To Cart</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         </ScrollView>
     )
@@ -414,7 +431,27 @@ const styles = StyleSheet.create({
     reviewTextContent: {
         color: "#ccc",
         lineHeight: 18,
-    }
+    },
+    bottomBar: {
+        paddingHorizontal: 0,
+        paddingVertical: 10,
+        backgroundColor: '#000',
+        borderTopWidth: 1,
+        borderTopColor: '#2C2C2E',
+        // marginBottom: 50
+    },
+    checkoutButton: {
+        backgroundColor: '#F28C28',
+        borderRadius: 15,
+        paddingVertical: 15,
+        alignItems: 'center',
+        width: '100%',
+    },
+    checkoutButtonText: {
+        color: 'white',
+        fontSize: 18,
+        fontWeight: 'bold',
+    },
 });
 
 export default SingleProductPage;

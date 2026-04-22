@@ -98,9 +98,11 @@ const BuyerOrderScreen = () => {
                 ))}
             </View>
             <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollViewContent}>
+                {console.log("filteredOrders", filteredOrders)}
                 {filteredOrders.map(order => (
                     <TouchableOpacity onPress={() => navigation.navigate("order_tracking", { orderId: order._id })} key={order._id} style={styles.orderCard}>
-                        <Image source={{ uri: order?.productId?.images?.[0] || product_img }} style={styles.productImage} />
+                        {/* <Image source={{ uri: product_img }} style={styles.productImage} /> */}
+                        <Image source={product_img} style={styles.productImage} />
                         <View style={styles.orderDetails}>
                             <Text style={styles.productType}>{order?.productId?.categories?.[0] || 'Category'}</Text>
                             <Text style={styles.productName}>{order?.productId?.title || 'Product'}</Text>

@@ -105,7 +105,7 @@ const CreatorStreamScreen = ({ route }) => {
   const [viewerCount, setViewerCount] = useState(0);
   const [token, setToken] = useState('');
   const [channelName] = useState(streamId);
-
+  const [creatorId, setCreatorId] = useState('');
   const [showProductCards, setShowProductCards] = useState(true);
 
   const [suddenDeathEnabled, setSuddenDeathEnabled] = useState(false);
@@ -150,10 +150,21 @@ const CreatorStreamScreen = ({ route }) => {
   const [endingStream, setEndingStream] = useState(false);
   const [auctionDetails, setAuctionDetails] = useState(null);
   const [highestBidder, setHighestBidder] = useState(null);
+  const [creatorDetails, setCreatorDetails] = useState(null);
   const [showInitiateAuctionModal, setShowInitiateAuctionModal] =
     useState(false);
   const [showAuctionEndPrompt, setShowAuctionEndPrompt] = useState(false);
   const [showAuctionStartNotice, setShowAuctionStartNotice] = useState(false);
+  const [userId, setUserId] = useState(null);
+  const coinPackages = [
+    { coins: 10, price: 5 },
+    { coins: 20, price: 10 },
+    { coins: 30, price: 15 },
+    { coins: 40, price: 20 },
+    { coins: 50, price: 25 },
+  ];
+
+  const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedProductForAuction, setSelectedProductForAuction] =
     useState(null);
   const [auctionFormData, setAuctionFormData] = useState({
@@ -162,10 +173,19 @@ const CreatorStreamScreen = ({ route }) => {
     suddenDeathEnabled: false,
   });
   useLiveStreamSocket(streamId, setComments);
-
+  // const userId = AsyncStorage.getItem('userId');
+  // console.log(userId, 'user id in creator stream outside of function');
   // ─────────────────────────────────────────────────────────────────────────
   // Derived state – defined BEFORE the timer useEffect that references them
   // ─────────────────────────────────────────────────────────────────────────
+
+  useEffect(() => {
+    const getUser = async () => {
+      const id = await AsyncStorage.getItem('userId');
+      setUserId(id);
+    };
+    getUser();
+  }, []);
   const isAuction = streamInfo?.mode === 'AUCTION';
   const isLiveAuction = isAuction && isStreamLive;
   const isAuctionEnded =
@@ -263,15 +283,55 @@ const CreatorStreamScreen = ({ route }) => {
   // Data fetchers
   // ─────────────────────────────────────────────────────────────────────────
   const fetchProfileInfo = async () => {
+
+    // const res = await getProfileInfo();
     try {
-      const res = await getProfileInfo();
+      const userId = await AsyncStorage.getItem("userId");
+
+      if (!userId) {
+        throw new Error("User ID not found in storage");
+      }
+      // console.log(userId, 'user id in creator stream');
+      const res = await axios.get(`${config.baseUrl2}/account/single/${userId}`);
+
+      // console.log(res, 'profile info in creator stream');
       setuId(res.userId);
       if (res.data) setData({ ...res.data });
     } catch (error) {
-      console.error('❌ Error fetching profile:', error.message);
+      console.error("❌ getProfileInfo error:", error.message);
+      throw error;
     }
-  };
 
+
+    // catch (error) {
+    //   console.error('❌ Error fetching profile:', error.message);
+    // }
+  };
+  const fetchCreatorInfo = async () => {
+
+    // const res = await getProfileInfo();
+    try {
+      const userId = await AsyncStorage.getItem("userId");
+
+      if (!userId) {
+        throw new Error("User ID not found in storage");
+      }
+      // console.log(userId, 'user id in creator stream');
+      const res = await axios.get(`${config.baseUrl2}/account/single/${streamInfo?.creatorId?._id || userId}`);
+
+      // console.log(res, 'creator info in creator stream');
+      setCreatorDetails(res?.data?.data || null);
+      if (res.data) setData({ ...res.data });
+    } catch (error) {
+      console.error("❌ getProfileInfo error:", error.message);
+      throw error;
+    }
+
+
+    // catch (error) {
+    //   console.error('❌ Error fetching profile:', error.message);
+    // }
+  };
   const fetchAllGifts = async () => {
     try {
       const gifts = await getAllGifts();
@@ -294,10 +354,11 @@ const CreatorStreamScreen = ({ route }) => {
     try {
       let res = await axios.get(`${config.baseUrl}/stream/stream/${streamId}`);
       const info = res.data.data;
+      // console.log(res, 'stream info in creator stream');
       setStreamInfo(info);
       setIsStreamLive(info?.status === 'LIVE');
       setCurrentBid(info.currentBid || info.startingBid);
-
+      setCreatorId(info?.creatorId?._id || '');
       let userId = await AsyncStorage.getItem('userId');
       if (info?.creatorId?._id === userId) {
         setHost(true);
@@ -312,6 +373,7 @@ const CreatorStreamScreen = ({ route }) => {
         // ─── FIX 4 ─ pass the id directly so fetchAuctionInfo never
         //             reads a stale / null streamInfo state value
         await fetchAuctionInfo(info._id);
+        await fetchCreatorInfo();
       }
     } catch (err) {
       console.log('Error fetching stream:', err);
@@ -324,7 +386,7 @@ const CreatorStreamScreen = ({ route }) => {
   //             FIX 6 ─ timeLeft is always set as a proper 'MM:SS' string.
   const fetchAuctionInfo = async (streamIdOverride) => {
     const targetId = streamIdOverride || streamInfo?._id;
-    console.log('fetchAuctionInfo called with streamId:', targetId);
+    // console.log('fetchAuctionInfo called with streamId:', targetId);
     if (!targetId) {
       console.log('fetchAuctionInfo: no stream id available yet, skipping');
       return;
@@ -337,7 +399,7 @@ const CreatorStreamScreen = ({ route }) => {
       setAuctionDetails(info);
       setHighestBidder(info?.[0]?.highestBidder || null);
       setCurrentBid(info?.[0]?.currentBid || info?.[0]?.startingBid);
-      console.log(info, 'auction info in fetchAuctionInfo');
+      // console.log(info, 'auction info in fetchAuctionInfo');
       const endTs = info?.[0]?.endTime
         ? new Date(info[0].endTime).getTime()
         : null;
@@ -375,8 +437,8 @@ const CreatorStreamScreen = ({ route }) => {
   };
 
   const isActualCreator = () =>
-    !!(uId && streamInfo?.creatorId?._id && uId === streamInfo.creatorId._id);
-
+    !!(userId && streamInfo?.creatorId?._id && userId === streamInfo.creatorId._id);
+  // console.log(uId, streamInfo?.creatorId?._id, 'checking if actual creator');
   const handleEndStream = async () => {
     if (!isActualCreator()) {
       Alert.alert(
@@ -587,10 +649,15 @@ const CreatorStreamScreen = ({ route }) => {
     Keyboard.dismiss();
     setwallet(false);
     let userId = await AsyncStorage.getItem('userId');
+
+    console.log(amount, 'amount to pay');
+
+    console.log(selectedPackage, 'amount to pay');
     try {
       let paymentIntentRes = await axios.post(
         `${config.baseUrl2}/payment/create-intent`,
-        { amount: amount * 100, currency: 'usd' },
+        // { amount: selectedPackage?.price * 100, currency: 'usd' },
+        { amount: selectedPackage?.price * 100, currency: 'usd' },
       );
       if (!paymentIntentRes?.data?.clientSecret) {
         throw new Error('Failed to fetch payment intent');
@@ -610,20 +677,50 @@ const CreatorStreamScreen = ({ route }) => {
         return;
       }
       let res = await axios.put(`${config.baseUrl2}/account/buy/${userId}`, {
-        dollars: amount,
+        dollars: selectedPackage?.coins,
       });
       if (res?.data) {
         ToastAndroid.show('Coin Purchased Successfully!', ToastAndroid.SHORT);
         setAmount(0);
         fetchProfileInfo();
+        setSelectedPackage(null);
       }
     } catch (error) {
       console.log(error);
     }
   };
+  // const handleSendGifts = async (coins, giftId, giftName) => {
+  //   console.log(coins, giftId, data, 'gift details to send');
 
+  //   // if (data?.data?.coins < coins) {
+  //   //   ToastAndroid.show('Not Enough Coins', ToastAndroid.SHORT);
+  //   //   setshowGifts(false);
+  //   //   return;
+  //   // }
+
+  //   // let userId = await AsyncStorage.getItem('userId');
+
+  //   let res = await axios.post(`${config.baseUrl}/gift/create`, {
+  //     userId,
+  //     streamId: streamInfo?._id,
+  //     giftId, // ✅ FIXED
+  //   });
+
+  //   console.log(res, 'gift send response');
+
+  //   if (res?.data?.data) {
+  //     ToastAndroid.show('Gift Sent!', ToastAndroid.SHORT);
+  //     setshowGifts(false);
+  //     fetchGifts();
+
+  //     // better than timeout → immediate state sync
+  //     fetchProfileInfo();
+  //   }
+  // };
   const handleSendGifts = async (coins, name) => {
-    if (data?.coins < coins) {
+    console.log(coins, name, data, 'gift details to send');
+    console.log(data?.data?.coins < coins, 'checking if user has enough coins');
+    if (data?.data?.coins < coins) {
       ToastAndroid.show('Not Enough Coins', ToastAndroid.SHORT);
       setshowGifts(false);
       return;
@@ -634,13 +731,17 @@ const CreatorStreamScreen = ({ route }) => {
       streamId: streamInfo?._id,
       image: name,
     });
+    console.log(res, 'gift send response in handleSendGifts');
     if (res?.data?.data) {
+      console.log(res, 'gift send response');
       ToastAndroid.show('Gift Sent!', ToastAndroid.SHORT);
       setshowGifts(false);
       fetchGifts();
       setTimeout(() => fetchProfileInfo(), 500);
     }
   };
+
+
   const handleBid = async (quickBid = null) => {
     Keyboard.dismiss();
     if (!isStreamLive) {
@@ -868,18 +969,23 @@ const CreatorStreamScreen = ({ route }) => {
   // };
 
   const followCreator = async (cid, followedBy) => {
+    // console.log('followCreator called with:', { cid, followedBy, uId });
+    // let userId = await AsyncStorage.getItem('userId');
     try {
-      if (!followedBy?.includes(cid)) {
-        let res = await axios.put(
-          `${config.baseUrl2}/account/follow/${uId}/${cid}`,
-        );
-        if (res?.data?.data) {
-          ToastAndroid.show('Now Following Creator!', ToastAndroid.SHORT);
-          fetchStreamInfo();
-          fetchAuctionInfo();
-          fetchProfileInfo();
-        }
+      // if (!followedBy?.includes(cid)) {
+      let res = await axios.put(
+        `${config.baseUrl2}/account/follow/${userId}/${cid}`,
+      );
+      console.log(res, 'follow creator response');
+      if (res?.data?.data) {
+        ToastAndroid.show('Now Following Creator!', ToastAndroid.SHORT);
+        fetchStreamInfo();
+        fetchAuctionInfo();
+        fetchProfileInfo();
+        fetchCreatorInfo();
+
       }
+      // }
     } catch (error) {
       console.log(error);
     }
@@ -1022,7 +1128,7 @@ const CreatorStreamScreen = ({ route }) => {
       hideSub.remove();
     };
   }, []);
-
+  const shipmentCreatedRef = useRef(false);
   // ─────────────────────────────────────────────────────────────────────────
   // FIX 7 ─ Timer interval
   //   • Reads endTime via endTimeRef.current so it always has the latest
@@ -1219,7 +1325,169 @@ const CreatorStreamScreen = ({ route }) => {
 
   //   return () => clearInterval(interval);
   // }, [endTime, biddings, streamInfo, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
-  useEffect(() => {
+//   const createShipmentForWinner = async (stream, winningBid) => {
+//     try {
+//       // Get bidder's information
+//       let bidderInfo = winningBid.winnerId;
+//       console.log(winnerDetails, 'winnerDetails in createShipmentForWinner');
+// console.log('Bidder Info for Shipment:', winningBid);
+// console.log('Stream Info for Shipment:', stream);
+//       const shipmentData = {
+//         streamId: stream._id,
+//         bidderId: bidderInfo._id,
+//         sellerId: stream.creatorId._id,
+//         productId: stream.productId[0]?._id,
+//         bidAmount: winningBid.bidAmount,
+//         quantity: 1,
+//         customer_address: bidderInfo.address || 'Address to be confirmed',
+//         city: bidderInfo.city || 'City',
+//         state: bidderInfo.state || 'State',
+//         country: bidderInfo.country || 'Country',
+//         zip: bidderInfo.zip || '00000',
+//         total: winningBid.bidAmount,
+//         status: 'pending',
+//       };
+
+//       const res = await axios.post(
+//         `${config.baseUrl}/shipment/create`,
+//         shipmentData,
+//       );
+// console.log(res, 'Shipment creation response');
+//       if (res?.data?.data) {
+//         ToastAndroid.show('Shipment Created for Winner!', ToastAndroid.SHORT);
+
+//         // Send notification to winner
+//         // await notifyWinner(bidderInfo._id, stream._id, winningBid.bidAmount);
+
+//         // return res.data.data;
+//       }
+//     } catch (error) {
+//       console.error('Shipment creation error:', error);
+//       ToastAndroid.show('Shipment creation failed', ToastAndroid.SHORT);
+//     }
+//   };
+ 
+ const createShipmentForWinner = async (stream, winnerUser, bidAmount) => {
+  try {
+    console.log("winnerUser:", winnerUser);
+    console.log("stream:", stream);
+
+    const shipmentData = {
+      streamId: stream?._id,
+
+      bidderId: winnerUser?._id, // ✅ FIXED
+
+      sellerId:
+        typeof stream?.creatorId === "object"
+          ? stream?.creatorId?._id
+          : stream?.creatorId,
+
+      productId:
+        typeof stream?.productId?.[0] === "object"
+          ? stream?.productId?.[0]?._id
+          : stream?.productId?.[0],
+
+      bidAmount: bidAmount, // ✅ pass separately
+      quantity: 1,
+
+      customer_address: winnerUser?.address || "Address to be confirmed",
+      city: winnerUser?.city || "City",
+      state: winnerUser?.state || "State",
+      country: winnerUser?.country || "Country",
+      zip: winnerUser?.zip || "00000",
+
+      total: bidAmount,
+      status: "pending",
+    };
+
+    console.log("Final shipmentData:", shipmentData);
+
+    const res = await axios.post(
+      `${config.baseUrl}/shipment/create`,
+      shipmentData
+    );
+
+    if (res?.data?.data) {
+      ToastAndroid.show("Shipment Created for Winner!", ToastAndroid.SHORT);
+    }
+  } catch (error) {
+    console.error("Shipment creation error:", error);
+    ToastAndroid.show("Shipment creation failed", ToastAndroid.SHORT);
+  }
+};
+//  const createShipmentForWinner = async (stream, winningBid) => {
+//   try {
+//     console.log("=== DEBUG SHIPMENT ===");
+//     console.log("winningBid:", winningBid);
+//     console.log("stream:", stream);
+
+//     const bidderRaw = winningBid?.winnerId;
+//     const sellerRaw = stream?.creatorId;
+//     const productRaw = stream?.productId?.[0];
+
+//     const shipmentData = {
+//       streamId: stream?._id,
+
+//       bidderId:
+//         typeof bidderRaw === "object" ? bidderRaw?._id : bidderRaw,
+
+//       sellerId:
+//         typeof sellerRaw === "object" ? sellerRaw?._id : sellerRaw,
+
+//       productId:
+//         typeof productRaw === "object" ? productRaw?._id : productRaw,
+
+//       bidAmount: winningBid?.bidAmount,
+//       quantity: 1,
+
+//       customer_address:
+//         typeof bidderRaw === "object"
+//           ? bidderRaw?.address || "Address to be confirmed"
+//           : "Address to be confirmed",
+
+//       city:
+//         typeof bidderRaw === "object"
+//           ? bidderRaw?.city || "City"
+//           : "City",
+
+//       state:
+//         typeof bidderRaw === "object"
+//           ? bidderRaw?.state || "State"
+//           : "State",
+
+//       country:
+//         typeof bidderRaw === "object"
+//           ? bidderRaw?.country || "Country"
+//           : "Country",
+
+//       zip:
+//         typeof bidderRaw === "object"
+//           ? bidderRaw?.zip || "00000"
+//           : "00000",
+
+//       total: winningBid?.bidAmount,
+//       status: "pending",
+//     };
+
+//     console.log("Final shipmentData:", shipmentData);
+
+//     const res = await axios.post(
+//       `${config.baseUrl}/shipment/create`,
+//       shipmentData
+//     );
+
+//     console.log(res, "Shipment creation response");
+
+//     if (res?.data?.data) {
+//       ToastAndroid.show("Shipment Created for Winner!", ToastAndroid.SHORT);
+//     }
+//   } catch (error) {
+//     console.error("Shipment creation error:", error);
+//     ToastAndroid.show("Shipment creation failed", ToastAndroid.SHORT);
+//   }
+// };
+
+useEffect(() => {
     if (!endTime || isAuctionEnded) return;
 
     const interval = setInterval(async () => {
@@ -1272,6 +1540,7 @@ const CreatorStreamScreen = ({ route }) => {
                     bidAmount: winningBidAmount,
                     profile: winningBid.profile,
                   });
+                //  await createShipmentForWinner(streamInfo, winningBid);
                   setBiddingWinner(true);
                   ToastAndroid.show(
                     '🏆 Auction ended - Winner announced!',
@@ -1346,6 +1615,7 @@ const CreatorStreamScreen = ({ route }) => {
 
     return () => clearInterval(interval);
   }, [endTime, biddings, streamInfo, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded, auctionDetails]);
+
   // ─────────────────────────────────────────────────────────────────────────
   // Socket
   // ─────────────────────────────────────────────────────────────────────────
@@ -1437,6 +1707,13 @@ const CreatorStreamScreen = ({ route }) => {
   // ─────────────────────────────────────────────────────────────────────────
   // Sub-component
   // ─────────────────────────────────────────────────────────────────────────
+
+  // console.log("userId:", userId);
+  // console.log("followedBy:", creatorDetails?.followedBy);
+  // console.log(
+  //   "match:",
+  //   creatorDetails?.followedBy?.includes(String(userId))
+  // );
   const StreamHeader = ({
     streamInfo,
     isStreamLive,
@@ -1521,6 +1798,7 @@ const CreatorStreamScreen = ({ route }) => {
                   followCreator(
                     streamInfo?.creatorId?._id,
                     streamInfo?.creatorId?.followedBy,
+                    uId
                   )
                 }
                 style={{
@@ -1533,7 +1811,9 @@ const CreatorStreamScreen = ({ route }) => {
                   marginLeft: 5,
                 }}>
                 <Text style={{ color: '#fff', fontSize: 13 }}>
-                  {streamInfo?.creatorId?.followedBy?.includes(uId)
+                  {/* {creatorDetails?.followedBy} */}
+
+                  {creatorDetails?.followedBy?.includes(String(userId))
                     ? 'Following'
                     : 'Follow'}
                 </Text>
@@ -1653,7 +1933,7 @@ const CreatorStreamScreen = ({ route }) => {
         />
 
         {/* BIDDING TIMER – creator only */}
-        {isActualCreator() && (
+        {isActualCreator() ? (
           <TouchableOpacity
             onPress={() => setTimerSelectionModal(true)}
             style={{
@@ -1677,7 +1957,29 @@ const CreatorStreamScreen = ({ route }) => {
             </Text>
             <AntDesign name="plus" size={14} color="white" />
           </TouchableOpacity>
-        )}
+        ) :
+          (
+
+            <TouchableOpacity
+              // onPress={() => setTimerSelectionModal(true)}
+              style={{
+                position: 'absolute',
+                top: 120,
+                left: '5%',
+                width: 80,
+                height: 30,
+                borderWidth: 1,
+                borderColor: '#999893',
+                borderRadius: 26,
+                flexDirection: 'row',
+                justifyContent: 'center',
+                alignItems: 'center',
+                zIndex: 200,
+                backgroundColor: 'rgba(0,0,0,0.6)',
+              }}><Text style={{ color: timerColor, fontSize: 14, marginRight: 5 }}>
+                {timerDisplay}
+              </Text></TouchableOpacity>)
+        }
 
         <UserInvitationModal
           visible={showUserInvitation}
@@ -1687,7 +1989,7 @@ const CreatorStreamScreen = ({ route }) => {
         />
 
         {gift && (
-          <Animated.View style={[styles.giftContainer, { opacity: fadeAnim }]}>
+          <Animated.View style={[styles.giftContainer, { opacity: fadeAnim, }]}>
             {(() => {
               const matchedGift = giftsData.find(g => g.title === gift.name);
               return (
@@ -1881,27 +2183,32 @@ const CreatorStreamScreen = ({ route }) => {
         )}
 
         {showGifts && (
+
           <View
-            style={{ position: 'absolute', left: 10, right: 10, bottom: 5, padding: 20, backgroundColor: '#000', zIndex: 2, width: '95%', borderRadius: 10 }}>
+            style={{ position: 'absolute', left: 10, right: 10, bottom: 30, padding: 20, backgroundColor: '#000', zIndex: 200, width: '95%', borderRadius: 10 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
               <Text style={{ color: '#fff', fontSize: 17 }}>Gifts</Text>
+              {/* {console.log('Gifts Data:', giftsData)} */}
+              {/* {console.log('User Coins:', data)} */}
               <TouchableOpacity
-                onPress={() => setshowShirts(false)}
+                onPress={() => (
+                  setshowGifts(false),
+                  setwallet(true))}
                 style={{ backgroundColor: 'orange', borderRadius: 15, paddingVertical: 5, paddingHorizontal: 10, flexDirection: 'row', alignItems: 'center', marginLeft: 10 }}>
                 <AntDesign name="bank" size={13} color="#fff" />
-                <Text style={{ color: '#fff', marginLeft: 5 }}>{data?.coins}</Text>
+                <Text style={{ color: '#fff', marginLeft: 5 }}>{!data?.data?.coins ? 'Recharge' : data?.data?.coins + ' +'}</Text>
               </TouchableOpacity>
             </View>
             <View style={{ flexDirection: 'row', columnGap: 23, flexWrap: 'wrap' }}>
               {giftsData?.map(i => (
                 <Pressable
                   key={i?._id}
-                  onPress={() => handleSendGifts(i?.coin, i?.title)}
+                  onPress={() => handleSendGifts(i?.coin, i?._id, i?.title)}
                   style={{ backgroundColor: '#343434', padding: 10, marginTop: 15, borderRadius: 10 }}>
                   <Image source={{ uri: i?.image }} style={{ width: 80, height: 80, borderRadius: 10 }} />
                   <Text style={{ color: '#fff', textAlign: 'center', marginTop: 4 }}>{i?.title}</Text>
                   <TouchableOpacity
-                    onPress={() => setshowShirts(false)}
+                    // onPress={() => setshowShirts(false)}
                     style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', marginTop: 5 }}>
                     <AntDesign name="bank" size={13} color="orange" />
                     <Text style={{ color: '#fff', marginLeft: 5 }}>{i?.coin}</Text>
@@ -1918,34 +2225,56 @@ const CreatorStreamScreen = ({ route }) => {
         )}
 
         {wallet && (
-          <View style={{ position: 'absolute', left: 10, right: 10, bottom: 5, padding: 20, backgroundColor: '#000', zIndex: 2, width: '95%', borderRadius: 10 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5 }}>
-              <Text style={{ color: '#fff', fontSize: 17 }}>Coins</Text>
-              <Text style={{ color: '#fff', fontSize: 17 }}>🪙 {data?.coins}</Text>
+
+          <View style={{ marginTop: 15, zIndex: 200, position: 'absolute', left: 10, right: 10, bottom: keyboardOpen ? 300 : 40, padding: 20, backgroundColor: '#000', width: '95%', borderRadius: 10 }}>
+            <Text style={{ color: '#fff', fontSize: 16, marginBottom: 10 }}>
+              Select Coins Package
+            </Text>
+
+            <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 10 }}>
+              {coinPackages?.map((item, index) => (
+                <TouchableOpacity
+                  key={index}
+                  onPress={() => setSelectedPackage(item)}
+                  style={{
+                    padding: 12,
+                    borderRadius: 10,
+                    backgroundColor:
+                      selectedPackage?.coins === item.coins ? '#5856d6' : '#343434',
+                    borderWidth: 1,
+                    borderColor:
+                      selectedPackage?.coins === item.coins ? '#5856d6' : '#747474',
+                    minWidth: 80,
+                    alignItems: 'center',
+                  }}
+                >
+                  <Text style={{ color: '#fff', fontSize: 14 }}>
+                    🪙 {item.coins}
+                  </Text>
+                  <Text style={{ color: '#aaa', fontSize: 12 }}>
+                    ${item.price}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 5, backgroundColor: '#343434', padding: 10, marginTop: 15, borderRadius: 10 }}>
-              <View style={{ backgroundColor: '#5856d6', padding: 10, borderRadius: 10 }}>
-                <AntDesign name="creditcard" size={24} color="#fff" />
-              </View>
-              <TextInput
-                keyboardType="numeric"
-                value={amount.toString()}
-                onChangeText={text => setAmount(text ? parseInt(text) : '')}
-                placeholderTextColor={'#747474'}
-                style={{ flex: 1, height: 50, paddingHorizontal: 20, borderWidth: 1, borderColor: '#747474', marginLeft: 10, borderRadius: 10 }}
-                placeholder="Amount To Buy Coins"
-              />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', marginTop: 20 }}>
+              <TouchableOpacity
+                onPress={proceed}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'orange', padding: 10, marginTop: 15, borderRadius: 10 }}>
+                <Text style={{ color: '#fff', fontSize: 17 }}>Pay Now</Text>
+              </TouchableOpacity>
+              <TouchableOpacity
+                onPress={() => {
+                  setAmount(''),
+                    setwallet(false)
+                  setSelectedPackage(null);
+                }}
+                style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#343434', padding: 10, marginTop: 15, borderRadius: 10 }}>
+                <Text style={{ color: '#fff', fontSize: 17 }}>Close</Text>
+              </TouchableOpacity>
+
             </View>
-            <TouchableOpacity
-              onPress={proceed}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: 'orange', padding: 10, marginTop: 15, borderRadius: 10 }}>
-              <Text style={{ color: '#fff', fontSize: 17 }}>Pay Now</Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => setwallet(false)}
-              style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'center', backgroundColor: '#343434', padding: 10, marginTop: 15, borderRadius: 10 }}>
-              <Text style={{ color: '#fff', fontSize: 17 }}>Close</Text>
-            </TouchableOpacity>
           </View>
         )}
 
