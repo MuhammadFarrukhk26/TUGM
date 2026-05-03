@@ -27,8 +27,8 @@ const SellerOrdersScreen = () => {
                        console.log("Shipments fetched:", shipmentsRes?.data?.data);
             // Combine both orders and shipments
             let allOrders = [
-                ...res?.data?.data || [],
-                ...shipmentsRes?.data?.data || [],
+                ...res?.data?.data?.filter(x => x?.productId !==null) || [],
+                ...shipmentsRes?.data?.data?.filter(x => x?.productId !==null) || [],
             ];
             
             setOrders(allOrders);
@@ -41,6 +41,7 @@ const SellerOrdersScreen = () => {
     const deliverOrder = async (id) => {
         try {
             let res = await axios.get(`${config.baseUrl}/order/delivered/${id}`)
+            console.log("Order marked as delivered:", res);
             if (res?.data) {
                 fetchProduct();
                 ToastAndroid.show('Order Marked!', ToastAndroid.SHORT);

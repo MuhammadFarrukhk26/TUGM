@@ -525,6 +525,7 @@ const CreatorStreamScreen = ({ route }) => {
             product: updatedProducts || [],
             totalAmount: winningBidAmount,
           };
+          console.log('Order payload to be sent:', orderPayload);
           const orderRes = await axios.post(
             `${config.baseUrl}/order/checkout`,
             orderPayload,
@@ -599,18 +600,26 @@ const CreatorStreamScreen = ({ route }) => {
   };
 
   const handleSend = async () => {
-    if (!message.trim()) return;
+    // if (!message.trim()) return;
+    console.log(message, 'message to send');
+    console.log(auctionDetails, 'auction details in handle send');
+    // console.log(uId, 'user id in handle send');
+    console.log(streamId, 'stream id in handle send');
+    console.log(userId, 'user id from state in handle send');
     try {
       await axios.post(`${config.baseUrl}/stream/message`, {
         auctionId: auctionDetails?.[0]?._id,
         streamId,
-        userId: uId,
+        userId: userId,
         message,
       });
       setMessage('');
       fetchMessages();
     } catch (error) {
       console.log(error, 'error in handle message send');
+      // console.log(error?.response, 'error response in handle message send');
+      const msg = error?.response?.data?.error || 'Failed to send message.';
+      ToastAndroid.show(msg, ToastAndroid.SHORT);
     }
   };
 
@@ -743,10 +752,16 @@ const CreatorStreamScreen = ({ route }) => {
 
   const createOrder = async ({
     winnerId,
-    products = [],
+    products,
     winningBidAmount,
-    streamId = null, // optional
+    streamId, // optional
   }) => {
+    console.log("Creating order with details:", {
+      winnerId,
+      products,
+      winningBidAmount,
+      streamId,
+    });
     try {
       console.log("Products for order:", products);
       const orderPayload = {
@@ -1621,7 +1636,7 @@ const CreatorStreamScreen = ({ route }) => {
                   console.log('Stream info at finalization:', streamInfo, auctionDetails);
                   ;
                   let proddata = auctionDetails?.[0]?.productId;
-                  console.log('Product data for order:', proddata);
+                  // console.log('Product data for order:', proddata);
                   console.log('Creating order with winning bid ID:', winningBid, 'and amount:', winningBidAmount);
                   const updatedProducts = [
                     {
@@ -1631,8 +1646,13 @@ const CreatorStreamScreen = ({ route }) => {
                     },
                   ];
                   console.log('Updated products for order:', updatedProducts);
-                  await createOrder(winningBid._id, updatedProducts, winningBidAmount);
-                  // await createShipmentForWinner(streamInfo, winningBid, winningBidAmount);
+                  await createOrder({
+                    winnerId: winningBid._id,
+                    products: updatedProducts,
+                    winningBidAmount: winningBidAmount,
+                    streamId: streamId, // optional
+                  });;
+              
                   setBiddingWinner(true);
                   ToastAndroid.show(
                     '🏆 Auction ended - Winner announced!',
@@ -2127,7 +2147,7 @@ const CreatorStreamScreen = ({ route }) => {
         {bidInfo && (
           <Animated.View style={[styles.giftContainer, { opacity: fadeAnim, zIndex: 2 }]}>
             <Text style={styles.giftText}>
-              {bidInfo?._doc?.username} added a bid! of ${bidInfo?.amount}
+              {bidInfo?.username} added a bid! of ${bidInfo?.amount}
             </Text>
           </Animated.View>
         )}

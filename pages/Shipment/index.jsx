@@ -18,7 +18,7 @@ const Shipments = () => {
         try {
             let res = await axios.get(`${config.baseUrl}/order/seller/${userId}`)
             if (res?.data) {
-                setOrders(res?.data?.data);
+                setOrders(res?.data?.data?.filter(order => (order?.productId !== null && order?.shipmentPdfUrl !== null && order?.status !== "cancelled")));
             }
         }
         catch (error) {
@@ -149,7 +149,7 @@ const Shipments = () => {
 
                     {/* Table Rows */}
                     <ScrollView style={{ maxHeight: 400 }}>
-                        {orders.map((item, index) => (
+                        {orders?.map((item, index) => (
                             <TouchableOpacity
                                 key={item.id}
                                 style={styles.listItem}
