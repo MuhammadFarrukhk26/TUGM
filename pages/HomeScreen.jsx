@@ -328,7 +328,7 @@ const HomeScreen = () => {
                                     </View>
                                     <View style={styles.liveStreamText}>
                                         <Text style={styles.liveStreamTitle}>{streams[0]?.creatorId?.username}</Text>
-                                        <Text style={styles.liveStreamDescription}>{streams[0]?.creatorId?.followers} followers</Text>
+                                        <Text style={styles.liveStreamDescription}>{streams[0]?.creatorId?.followedBy?.length} followers</Text>
                                     </View>
                                 </View>
                                 <TouchableOpacity onPress={() => followCreator(streams[0]?.creatorId?._id, streams[0]?.creatorId?.followedBy)} style={styles.followButton}>

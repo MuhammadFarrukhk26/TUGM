@@ -114,7 +114,7 @@ const Shipments = () => {
             </View>
 
             {/* Shipment List Items */}
-            <ScrollView horizontal style={{ marginTop: 10 }}>
+            <ScrollView horizontal style={{ marginTop: 10, height: 400 }}>
                 <View style={{ minWidth: 1000 }}>
                     {/* Table Header */}
                     <View style={[styles.listItem, { backgroundColor: '#222' }]}>

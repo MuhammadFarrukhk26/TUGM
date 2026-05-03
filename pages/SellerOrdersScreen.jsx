@@ -20,10 +20,11 @@ const SellerOrdersScreen = () => {
         try {
             // Get regular orders
             let res = await axios.get(`${config.baseUrl}/order/seller/${userId}`)
+            console.log("Orders fetched:", res?.data?.data);
             // Get auction shipments
             let shipmentsRes = await axios.get(`${config.baseUrl}/shipment/seller/${userId}`)
                 .catch(err => ({ data: { data: [] } })); // Fallback if endpoint doesn't exist yet
-            
+                       console.log("Shipments fetched:", shipmentsRes?.data?.data);
             // Combine both orders and shipments
             let allOrders = [
                 ...res?.data?.data || [],
@@ -52,8 +53,10 @@ const SellerOrdersScreen = () => {
     }
     const orderStatus = async (id) => {
         try {
-            let res = await axios.put(`${config.baseUrl}/order/status/${id}`, { status: "cancelled" })
+            let res = await axios.post(`${config.baseUrl}/order/cancel/${id}`)
+               console.log("Order cancelled:", res);
             if (res?.data) {
+                // console.log("Order cancelled:", res);
                 fetchProduct();
                 ToastAndroid.show('Order Cancelled!', ToastAndroid.SHORT);
 
@@ -134,7 +137,20 @@ const SellerOrdersScreen = () => {
                                             </View>
                                         )
                                     }
+         {
+                                        status === "pending" && (
+                                            <View>
 
+                                                <TouchableOpacity onPress={() => orderStatus(order?._id)} style={{ backgroundColor: "red", marginTop: 10, paddingVertical: 7, borderRadius: 6, justifyContent: "center", alignItems: "center" }}>
+                                                    <Text style={{ color: "white", fontSize: 15 }}>Cancel Order</Text>
+                                                </TouchableOpacity>
+                                                <TouchableOpacity onPress={() => deliverOrder(order?._id)} style={{ backgroundColor: "#2C2C2E", marginTop: 10, paddingVertical: 7, borderRadius: 6, justifyContent: "center", alignItems: "center" }}>
+                                                    <Text style={{ color: "white", fontSize: 15 }}>Complete Order</Text>
+                                                </TouchableOpacity>
+
+                                            </View>
+                                        )
+                                    }
                                 </View>
                             )
                         })

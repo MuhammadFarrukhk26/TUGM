@@ -53,6 +53,7 @@ const CheckoutScreen = () => {
         }
     }, [isAddressModalVisible]);
     const products = useSelector(state => state.cart.cartItems);
+    console.log("Products in checkout:", products);
     useEffect(() => {
         // if (isMapUpdate.current) return;
         if (!customer_address || !city || !country) return;

@@ -741,6 +741,82 @@ const CreatorStreamScreen = ({ route }) => {
     }
   };
 
+  const createOrder = async ({
+    winnerId,
+    products = [],
+    winningBidAmount,
+    streamId = null, // optional
+  }) => {
+    try {
+      console.log("Products for order:", products);
+      const orderPayload = {
+        userId: winnerId,
+        pickup_station: "Warehouse A - Los Angeles",
+
+        customer_address: "1234 Sunset Blvd",
+
+        product: products,
+        city: "Los Angeles",
+        country: "USA",
+        state: "CA",
+        zip: "90001",
+
+
+        // totalAmount: winningBidAmount,
+
+        // Optional fields
+        // auctionMode: true,
+        // streamId: streamId,
+      };
+
+      console.log(
+        "Sending order payload:",
+        orderPayload
+      );
+
+      const response = await axios.post(
+        `${config.baseUrl}/order/checkout`,
+        orderPayload
+      );
+
+      if (response?.data) {
+        console.log("Order Success:", response.data);
+
+        ToastAndroid.show(
+          "Order Created Successfully!",
+          ToastAndroid.SHORT
+        );
+
+        return {
+          success: true,
+          data: response.data,
+        };
+      }
+
+      return { success: false };
+    } catch (error) {
+      console.log("Order Error Details:", {
+        message: error?.message,
+        status: error?.response?.status,
+        statusText: error?.response?.statusText,
+        data: error?.response?.data,
+        config: error?.config?.data,
+      });
+
+      Alert.alert(
+        "Order Error",
+        `Order creation failed: ${error?.response?.data?.message ||
+        error?.message ||
+        "Please try again."
+        }`
+      );
+
+      return {
+        success: false,
+        error: error,
+      };
+    }
+  };
 
   const handleBid = async (quickBid = null) => {
     Keyboard.dismiss();
@@ -969,23 +1045,24 @@ const CreatorStreamScreen = ({ route }) => {
   // };
 
   const followCreator = async (cid, followedBy) => {
-    // console.log('followCreator called with:', { cid, followedBy, uId });
+    console.log('followCreator called with:', { cid, followedBy, userId });
     // let userId = await AsyncStorage.getItem('userId');
     try {
-      // if (!followedBy?.includes(cid)) {
-      let res = await axios.put(
-        `${config.baseUrl2}/account/follow/${userId}/${cid}`,
-      );
-      console.log(res, 'follow creator response');
-      if (res?.data?.data) {
-        ToastAndroid.show('Now Following Creator!', ToastAndroid.SHORT);
-        fetchStreamInfo();
-        fetchAuctionInfo();
-        fetchProfileInfo();
-        fetchCreatorInfo();
+      console.log('Checking if user already follows creator:', userId, followedBy, followedBy?.includes(userId));
+      if (!followedBy?.includes(userId)) {
+        let res = await axios.put(
+          `${config.baseUrl2}/account/follow/${userId}/${cid}`,
+        );
+        console.log(res, 'follow creator response');
+        if (res?.data?.data) {
+          ToastAndroid.show('Now Following Creator!', ToastAndroid.SHORT);
+          fetchStreamInfo();
+          fetchAuctionInfo();
+          fetchProfileInfo();
+          fetchCreatorInfo();
 
+        }
       }
-      // }
     } catch (error) {
       console.log(error);
     }
@@ -1325,169 +1402,169 @@ const CreatorStreamScreen = ({ route }) => {
 
   //   return () => clearInterval(interval);
   // }, [endTime, biddings, streamInfo, Host, suddenDeathEnabled, suddenDeathThreshold, isAuctionEnded]);
-//   const createShipmentForWinner = async (stream, winningBid) => {
-//     try {
-//       // Get bidder's information
-//       let bidderInfo = winningBid.winnerId;
-//       console.log(winnerDetails, 'winnerDetails in createShipmentForWinner');
-// console.log('Bidder Info for Shipment:', winningBid);
-// console.log('Stream Info for Shipment:', stream);
-//       const shipmentData = {
-//         streamId: stream._id,
-//         bidderId: bidderInfo._id,
-//         sellerId: stream.creatorId._id,
-//         productId: stream.productId[0]?._id,
-//         bidAmount: winningBid.bidAmount,
-//         quantity: 1,
-//         customer_address: bidderInfo.address || 'Address to be confirmed',
-//         city: bidderInfo.city || 'City',
-//         state: bidderInfo.state || 'State',
-//         country: bidderInfo.country || 'Country',
-//         zip: bidderInfo.zip || '00000',
-//         total: winningBid.bidAmount,
-//         status: 'pending',
-//       };
+  //   const createShipmentForWinner = async (stream, winningBid) => {
+  //     try {
+  //       // Get bidder's information
+  //       let bidderInfo = winningBid.winnerId;
+  //       console.log(winnerDetails, 'winnerDetails in createShipmentForWinner');
+  // console.log('Bidder Info for Shipment:', winningBid);
+  // console.log('Stream Info for Shipment:', stream);
+  //       const shipmentData = {
+  //         streamId: stream._id,
+  //         bidderId: bidderInfo._id,
+  //         sellerId: stream.creatorId._id,
+  //         productId: stream.productId[0]?._id,
+  //         bidAmount: winningBid.bidAmount,
+  //         quantity: 1,
+  //         customer_address: bidderInfo.address || 'Address to be confirmed',
+  //         city: bidderInfo.city || 'City',
+  //         state: bidderInfo.state || 'State',
+  //         country: bidderInfo.country || 'Country',
+  //         zip: bidderInfo.zip || '00000',
+  //         total: winningBid.bidAmount,
+  //         status: 'pending',
+  //       };
 
-//       const res = await axios.post(
-//         `${config.baseUrl}/shipment/create`,
-//         shipmentData,
-//       );
-// console.log(res, 'Shipment creation response');
-//       if (res?.data?.data) {
-//         ToastAndroid.show('Shipment Created for Winner!', ToastAndroid.SHORT);
+  //       const res = await axios.post(
+  //         `${config.baseUrl}/shipment/create`,
+  //         shipmentData,
+  //       );
+  // console.log(res, 'Shipment creation response');
+  //       if (res?.data?.data) {
+  //         ToastAndroid.show('Shipment Created for Winner!', ToastAndroid.SHORT);
 
-//         // Send notification to winner
-//         // await notifyWinner(bidderInfo._id, stream._id, winningBid.bidAmount);
+  //         // Send notification to winner
+  //         // await notifyWinner(bidderInfo._id, stream._id, winningBid.bidAmount);
 
-//         // return res.data.data;
-//       }
-//     } catch (error) {
-//       console.error('Shipment creation error:', error);
-//       ToastAndroid.show('Shipment creation failed', ToastAndroid.SHORT);
-//     }
-//   };
- 
- const createShipmentForWinner = async (stream, winnerUser, bidAmount) => {
-  try {
-    console.log("winnerUser:", winnerUser);
-    console.log("stream:", stream);
+  //         // return res.data.data;
+  //       }
+  //     } catch (error) {
+  //       console.error('Shipment creation error:', error);
+  //       ToastAndroid.show('Shipment creation failed', ToastAndroid.SHORT);
+  //     }
+  //   };
 
-    const shipmentData = {
-      streamId: stream?._id,
+  const createShipmentForWinner = async (stream, winnerUser, bidAmount) => {
+    try {
+      console.log("winnerUser:", winnerUser);
+      console.log("stream:", stream);
 
-      bidderId: winnerUser?._id, // ✅ FIXED
+      const shipmentData = {
+        streamId: stream?._id,
 
-      sellerId:
-        typeof stream?.creatorId === "object"
-          ? stream?.creatorId?._id
-          : stream?.creatorId,
+        bidderId: winnerUser?._id, // ✅ FIXED
 
-      productId:
-        typeof stream?.productId?.[0] === "object"
-          ? stream?.productId?.[0]?._id
-          : stream?.productId?.[0],
+        sellerId:
+          typeof stream?.creatorId === "object"
+            ? stream?.creatorId?._id
+            : stream?.creatorId,
 
-      bidAmount: bidAmount, // ✅ pass separately
-      quantity: 1,
+        productId:
+          typeof stream?.productId?.[0] === "object"
+            ? stream?.productId?.[0]?._id
+            : stream?.productId?.[0],
 
-      customer_address: winnerUser?.address || "Address to be confirmed",
-      city: winnerUser?.city || "City",
-      state: winnerUser?.state || "State",
-      country: winnerUser?.country || "Country",
-      zip: winnerUser?.zip || "00000",
+        bidAmount: bidAmount, // ✅ pass separately
+        quantity: 1,
 
-      total: bidAmount,
-      status: "pending",
-    };
+        customer_address: winnerUser?.address || "Address to be confirmed",
+        city: winnerUser?.city || "City",
+        state: winnerUser?.state || "State",
+        country: winnerUser?.country || "Country",
+        zip: winnerUser?.zip || "00000",
 
-    console.log("Final shipmentData:", shipmentData);
+        total: bidAmount,
+        status: "pending",
+      };
 
-    const res = await axios.post(
-      `${config.baseUrl}/shipment/create`,
-      shipmentData
-    );
+      console.log("Final shipmentData:", shipmentData);
 
-    if (res?.data?.data) {
-      ToastAndroid.show("Shipment Created for Winner!", ToastAndroid.SHORT);
+      const res = await axios.post(
+        `${config.baseUrl}/shipment/create`,
+        shipmentData
+      );
+
+      if (res?.data?.data) {
+        ToastAndroid.show("Shipment Created for Winner!", ToastAndroid.SHORT);
+      }
+    } catch (error) {
+      console.error("Shipment creation error:", error);
+      ToastAndroid.show("Shipment creation failed", ToastAndroid.SHORT);
     }
-  } catch (error) {
-    console.error("Shipment creation error:", error);
-    ToastAndroid.show("Shipment creation failed", ToastAndroid.SHORT);
-  }
-};
-//  const createShipmentForWinner = async (stream, winningBid) => {
-//   try {
-//     console.log("=== DEBUG SHIPMENT ===");
-//     console.log("winningBid:", winningBid);
-//     console.log("stream:", stream);
+  };
+  //  const createShipmentForWinner = async (stream, winningBid) => {
+  //   try {
+  //     console.log("=== DEBUG SHIPMENT ===");
+  //     console.log("winningBid:", winningBid);
+  //     console.log("stream:", stream);
 
-//     const bidderRaw = winningBid?.winnerId;
-//     const sellerRaw = stream?.creatorId;
-//     const productRaw = stream?.productId?.[0];
+  //     const bidderRaw = winningBid?.winnerId;
+  //     const sellerRaw = stream?.creatorId;
+  //     const productRaw = stream?.productId?.[0];
 
-//     const shipmentData = {
-//       streamId: stream?._id,
+  //     const shipmentData = {
+  //       streamId: stream?._id,
 
-//       bidderId:
-//         typeof bidderRaw === "object" ? bidderRaw?._id : bidderRaw,
+  //       bidderId:
+  //         typeof bidderRaw === "object" ? bidderRaw?._id : bidderRaw,
 
-//       sellerId:
-//         typeof sellerRaw === "object" ? sellerRaw?._id : sellerRaw,
+  //       sellerId:
+  //         typeof sellerRaw === "object" ? sellerRaw?._id : sellerRaw,
 
-//       productId:
-//         typeof productRaw === "object" ? productRaw?._id : productRaw,
+  //       productId:
+  //         typeof productRaw === "object" ? productRaw?._id : productRaw,
 
-//       bidAmount: winningBid?.bidAmount,
-//       quantity: 1,
+  //       bidAmount: winningBid?.bidAmount,
+  //       quantity: 1,
 
-//       customer_address:
-//         typeof bidderRaw === "object"
-//           ? bidderRaw?.address || "Address to be confirmed"
-//           : "Address to be confirmed",
+  //       customer_address:
+  //         typeof bidderRaw === "object"
+  //           ? bidderRaw?.address || "Address to be confirmed"
+  //           : "Address to be confirmed",
 
-//       city:
-//         typeof bidderRaw === "object"
-//           ? bidderRaw?.city || "City"
-//           : "City",
+  //       city:
+  //         typeof bidderRaw === "object"
+  //           ? bidderRaw?.city || "City"
+  //           : "City",
 
-//       state:
-//         typeof bidderRaw === "object"
-//           ? bidderRaw?.state || "State"
-//           : "State",
+  //       state:
+  //         typeof bidderRaw === "object"
+  //           ? bidderRaw?.state || "State"
+  //           : "State",
 
-//       country:
-//         typeof bidderRaw === "object"
-//           ? bidderRaw?.country || "Country"
-//           : "Country",
+  //       country:
+  //         typeof bidderRaw === "object"
+  //           ? bidderRaw?.country || "Country"
+  //           : "Country",
 
-//       zip:
-//         typeof bidderRaw === "object"
-//           ? bidderRaw?.zip || "00000"
-//           : "00000",
+  //       zip:
+  //         typeof bidderRaw === "object"
+  //           ? bidderRaw?.zip || "00000"
+  //           : "00000",
 
-//       total: winningBid?.bidAmount,
-//       status: "pending",
-//     };
+  //       total: winningBid?.bidAmount,
+  //       status: "pending",
+  //     };
 
-//     console.log("Final shipmentData:", shipmentData);
+  //     console.log("Final shipmentData:", shipmentData);
 
-//     const res = await axios.post(
-//       `${config.baseUrl}/shipment/create`,
-//       shipmentData
-//     );
+  //     const res = await axios.post(
+  //       `${config.baseUrl}/shipment/create`,
+  //       shipmentData
+  //     );
 
-//     console.log(res, "Shipment creation response");
+  //     console.log(res, "Shipment creation response");
 
-//     if (res?.data?.data) {
-//       ToastAndroid.show("Shipment Created for Winner!", ToastAndroid.SHORT);
-//     }
-//   } catch (error) {
-//     console.error("Shipment creation error:", error);
-//     ToastAndroid.show("Shipment creation failed", ToastAndroid.SHORT);
-//   }
-// };
+  //     if (res?.data?.data) {
+  //       ToastAndroid.show("Shipment Created for Winner!", ToastAndroid.SHORT);
+  //     }
+  //   } catch (error) {
+  //     console.error("Shipment creation error:", error);
+  //     ToastAndroid.show("Shipment creation failed", ToastAndroid.SHORT);
+  //   }
+  // };
 
-useEffect(() => {
+  useEffect(() => {
     if (!endTime || isAuctionEnded) return;
 
     const interval = setInterval(async () => {
@@ -1540,7 +1617,22 @@ useEffect(() => {
                     bidAmount: winningBidAmount,
                     profile: winningBid.profile,
                   });
-                //  await createShipmentForWinner(streamInfo, winningBid);
+                  console.log('Winning bid found:', winningBid, 'Amount:', winningBidAmount);
+                  console.log('Stream info at finalization:', streamInfo, auctionDetails);
+                  ;
+                  let proddata = auctionDetails?.[0]?.productId;
+                  console.log('Product data for order:', proddata);
+                  console.log('Creating order with winning bid ID:', winningBid, 'and amount:', winningBidAmount);
+                  const updatedProducts = [
+                    {
+                      ...proddata,
+                      quantity: 1,
+                      price: winningBidAmount,
+                    },
+                  ];
+                  console.log('Updated products for order:', updatedProducts);
+                  await createOrder(winningBid._id, updatedProducts, winningBidAmount);
+                  // await createShipmentForWinner(streamInfo, winningBid, winningBidAmount);
                   setBiddingWinner(true);
                   ToastAndroid.show(
                     '🏆 Auction ended - Winner announced!',
@@ -1790,34 +1882,59 @@ useEffect(() => {
                   {streamInfo?.creatorId?.username}
                 </Text>
                 <Text style={{ color: '#fff', fontSize: 10 }}>
-                  {streamInfo?.creatorId?.followers ?? 0} Followers
+                  {streamInfo?.creatorId?.followedBy?.length ?? 0} Followers
                 </Text>
               </View>
-              <TouchableOpacity
-                onPress={() =>
-                  followCreator(
-                    streamInfo?.creatorId?._id,
-                    streamInfo?.creatorId?.followedBy,
-                    uId
-                  )
-                }
-                style={{
-                  backgroundColor: '#FF3729',
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                  borderRadius: 100,
-                  paddingHorizontal: 10,
-                  paddingVertical: 10,
-                  marginLeft: 5,
-                }}>
-                <Text style={{ color: '#fff', fontSize: 13 }}>
-                  {/* {creatorDetails?.followedBy} */}
+              {isActualCreator() === false ? (
+                <TouchableOpacity
+                  onPress={() =>
+                    followCreator(
+                      streamInfo?.creatorId?._id,
+                      streamInfo?.creatorId?.followedBy,
+                      uId
+                    )
+                  }
+                  style={{
+                    backgroundColor: '#FF3729',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderRadius: 100,
+                    paddingHorizontal: 10,
+                    paddingVertical: 10,
+                    marginLeft: 5,
+                  }}>
+                  <Text style={{ color: '#fff', fontSize: 13 }}>
+                    {/* {creatorDetails?.followedBy} */}
 
-                  {creatorDetails?.followedBy?.includes(String(userId))
-                    ? 'Following'
-                    : 'Follow'}
-                </Text>
-              </TouchableOpacity>
+                    {creatorDetails?.followedBy?.includes(String(userId))
+                      ? 'Following'
+                      : 'Follow'}
+                  </Text>
+                </TouchableOpacity>) : (<TouchableOpacity
+                  // onPress={() =>
+                  //   followCreator(
+                  //     streamInfo?.creatorId?._id,
+                  //     streamInfo?.creatorId?.followedBy,
+                  //     uId
+                  //   )
+                  // }
+                  style={{
+                    // backgroundColor: '#FF3729',
+                    justifyContent: 'center',
+                    alignItems: 'center',
+                    borderRadius: 100,
+                    paddingHorizontal: 10,
+                    paddingVertical: 10,
+                    marginLeft: 5,
+                  }}>
+                  <Text style={{ color: '#fff', fontSize: 13 }}>
+                    {/* {creatorDetails?.followedBy} */}
+
+                    {/* {creatorDetails?.followedBy?.includes(String(userId))
+                      ? 'Following'
+                      : 'Follow'} */}
+                  </Text>
+                </TouchableOpacity>)}
             </Pressable>
           </View>
         </View>
@@ -1838,7 +1955,7 @@ useEffect(() => {
             gap: 5,
           }}>
           <AntDesign name="eye" size={24} color="white" />
-          <Text style={{ color: '#fff' }}>{viewerCount === 0 ? 1 : viewerCount}</Text>
+          <Text style={{ color: '#fff' }}>{viewerCount}</Text>
         </TouchableOpacity>
       </View>
 
