@@ -894,8 +894,9 @@ const CreatorStreamScreen = ({ route }) => {
 
       if (quickBid) {
         setShowBidNotifcation(true);
+        console.log(data, 'data in handleBid for notification');
         setBidNotifcationData({
-          bidderId: { username: data?.username },
+          bidderId: { username: data?.data?.username },
           bidAmount: finalBidAmount,
         });
         setCurrentBid(finalBidAmount);
@@ -1652,7 +1653,7 @@ const CreatorStreamScreen = ({ route }) => {
                     winningBidAmount: winningBidAmount,
                     streamId: streamId, // optional
                   });;
-              
+
                   setBiddingWinner(true);
                   ToastAndroid.show(
                     '🏆 Auction ended - Winner announced!',
@@ -1731,57 +1732,28 @@ const CreatorStreamScreen = ({ route }) => {
   // ─────────────────────────────────────────────────────────────────────────
   // Socket
   // ─────────────────────────────────────────────────────────────────────────
-  // useEffect(() => {
-  //   socketRef.current = io('YOUR_BACKEND_URL');
-  //   socketRef.current.emit('joinStream', streamId);
-
-  //   socketRef.current.on('newBid', data => {
-  //     setCurrentBid(data.currentBid);
-  //   });
-
-  //   socketRef.current.on('biddingTimeUpdated', data => {
-  //     if (data?.endTime) {
-  //       const newTs = new Date(data.endTime).getTime();
-  //       setEndTime(newTs); // endTimeRef stays in sync via its own useEffect
-  //     }
-  //     if (data?.currentBid) setCurrentBid(data.currentBid);
-  //   });
-
-  //   socketRef.current.on('auctionTimeExtended', data => {
-  //     if (data?.newEndTime) {
-  //       const newTs = new Date(data.newEndTime).getTime();
-  //       setEndTime(newTs);
-  //       ToastAndroid.show('⏱️ Auction time extended! Keep bidding!', ToastAndroid.SHORT);
-  //     }
-  //   });
-
-  //   socketRef.current.on('streamEnded', () => {
-  //     fetchStreamInfo();
-  //     fetchAuctionInfo();
-  //   });
-
-  //   fetchStreamInfo();
-
-  //   return () => socketRef.current.disconnect();
-  // }, []);
   useEffect(() => {
-    socketRef.current = io('YOUR_BACKEND_URL');
+    socketRef.current = io(config.socketUrl, {
+      transports: ['websocket'],
+      reconnection: true,
+      reconnectionAttempts: Infinity,
+      reconnectionDelay: 2000,
+      forceNew: true,
+    });
     socketRef.current.emit('joinStream', streamId);
 
     socketRef.current.on('newBid', data => {
       setCurrentBid(data.currentBid);
-      // 🔥 FIX: Refresh auction details when a new bid comes in
-      fetchAuctionInfo(streamInfo?._id);
+      fetchAuctionInfo(streamId);
     });
 
     socketRef.current.on('biddingTimeUpdated', data => {
       if (data?.endTime) {
         const newTs = new Date(data.endTime).getTime();
-        setEndTime(newTs);
+        setEndTime(newTs); // endTimeRef stays in sync via its own useEffect
       }
       if (data?.currentBid) setCurrentBid(data.currentBid);
-      // 🔥 FIX: Refresh auction details
-      fetchAuctionInfo(streamInfo?._id);
+      fetchAuctionInfo(streamId);
     });
 
     socketRef.current.on('auctionTimeExtended', data => {
@@ -1790,18 +1762,16 @@ const CreatorStreamScreen = ({ route }) => {
         setEndTime(newTs);
         ToastAndroid.show('⏱️ Auction time extended! Keep bidding!', ToastAndroid.SHORT);
       }
-      // 🔥 FIX: Refresh auction details
-      fetchAuctionInfo(streamInfo?._id);
+      fetchAuctionInfo(streamId);
     });
 
     socketRef.current.on('streamEnded', () => {
       fetchStreamInfo();
-      fetchAuctionInfo();
+      fetchAuctionInfo(streamId);
     });
 
-    // 🔥 NEW: Listen for auction winner updates from backend
-    socketRef.current.on('auctionWinner', (data) => {
-      if (data.streamId === streamId && data.winner) {
+    socketRef.current.on('auctionWinner', data => {
+      if (data?.streamId === streamId && data?.winner) {
         setWinnerDetails({
           winnerId: data.winner._id,
           username: data.winner.username,
@@ -2126,7 +2096,7 @@ const CreatorStreamScreen = ({ route }) => {
         />
 
         {gift && (
-          <Animated.View style={[styles.giftContainer, { opacity: fadeAnim, }]}>
+          <Animated.View style={[styles.notificationContainer, { opacity: fadeAnim }]}>
             {(() => {
               const matchedGift = giftsData.find(g => g.title === gift.name);
               return (
@@ -2145,7 +2115,7 @@ const CreatorStreamScreen = ({ route }) => {
         )}
 
         {bidInfo && (
-          <Animated.View style={[styles.giftContainer, { opacity: fadeAnim, zIndex: 2 }]}>
+          <Animated.View style={[styles.notificationContainer, { opacity: fadeAnim }]}>
             <Text style={styles.giftText}>
               {bidInfo?.username} added a bid! of ${bidInfo?.amount}
             </Text>
@@ -2237,18 +2207,9 @@ const CreatorStreamScreen = ({ route }) => {
         </View>
 
         {showBidNotifcation && (
-          <View
-            style={{
-              padding: 10,
-              backgroundColor: '#D9D9D961',
-              borderRadius: 20,
-              marginVertical: 10,
-              position: 'absolute',
-              top: '30%',
-              left: '15%',
-              zIndex: 2,
-            }}>
-            <Text style={{ color: '#fff', fontWeight: '800' }}>
+          <View style={styles.bidContainer}>
+            <Text style={styles.giftText}>
+              {console.log('Bid Notification Data:', bidNotifcationData) }
               {bidNotifcationData?.bidderId?.username} added a ${bidNotifcationData?.bidAmount} Bid
             </Text>
           </View>
@@ -2723,10 +2684,35 @@ const styles = StyleSheet.create({
   buttonText: {
     color: '#fff',
   },
+  notificationContainer: {
+    position: 'absolute',
+    top: '40%',
+    left: '5%',
+    backgroundColor: 'rgba(52, 52, 52, 0.8)',
+    padding: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    zIndex: 2,
+  },
   giftContainer: {
     position: 'absolute',
-    top: 80,
-    left: '30%',
+       top: '40%',
+    left: '5%',
+    transform: [{ translateX: -50 }],
+    backgroundColor: 'rgba(52, 52, 52, 0.8)',
+    padding: 10,
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 30,
+    zIndex: 2,
+  },
+  bidContainer: {
+    position: 'absolute',
+    top: '50%',
+    left: '20%',
     transform: [{ translateX: -50 }],
     backgroundColor: 'rgba(52, 52, 52, 0.8)',
     padding: 10,
