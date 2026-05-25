@@ -2596,7 +2596,7 @@ const CreatorStreamScreen = ({ route }) => {
                 <FontAwesome name="send" size={20} color="#fff" />
               </TouchableOpacity>
             </View>
-            <Pressable
+            {/* <Pressable
               onPress={() => {
                 if (isLiveAuction) {
                   Alert.alert('Auction Mode', 'Add to Cart is disabled during live auction.');
@@ -2606,7 +2606,7 @@ const CreatorStreamScreen = ({ route }) => {
               }}
               style={styles.commanStyle}>
               <Ionicons name="cart-outline" size={20} color="#fff" />
-            </Pressable>
+            </Pressable> */}
             <Pressable onPress={() => setshowGifts(true)} style={styles.commanStyle}>
               <Image source={giftImg} style={{ width: 20, height: 20 }} />
             </Pressable>
