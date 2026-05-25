@@ -1740,7 +1740,7 @@ const CreatorStreamScreen = ({ route }) => {
       reconnectionDelay: 2000,
       forceNew: true,
     });
-    socketRef.current.emit('joinStream', streamId);
+    socketRef.current.emit('join', streamId);
 
     socketRef.current.on('newBid', data => {
       setCurrentBid(data.currentBid);
